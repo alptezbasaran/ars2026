@@ -10,7 +10,7 @@ this folder. All of them are generated from the speaker notes: edit the notes in
 
 ## Before you start
 
-- **The slides.** Open https://alptezbasaran.github.io/ars2026/ in a browser and press F for full screen (the QR code on the title slide is the same address). Keep ars2026-slides.pdf on the laptop too: the same deck, one page per slide, and it works without a network.
+- **The slides.** The meeting's presenter template says to bring the slides on a USB drive and to use the session room's laptop, not your own: put ars2026-slides.pdf on a drive. If that laptop has a network connection, open https://alptezbasaran.github.io/ars2026/ in its browser instead and press F for full screen: the animations play there. The QR code on the title slide is the same address.
 - **What to read.** Read the plain text aloud. Text in square brackets is a note to you, not speech.
 - **Moving on.** 19 screens: the title, 14 numbered slides, 3 animations and the closing slide. One press of the right arrow or the clicker per screen; nothing builds inside a slide.
 - **Animations.** Each starts by itself, runs 34 to 38 seconds and stops on its last picture. Start reading when it appears; move on when you have finished the text. The PDF shows only the last picture; the text fits both.

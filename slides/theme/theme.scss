@@ -189,8 +189,6 @@ $presentation-heading-color: #ffffff;
 }
 .title-rule { height: 1px; background: rgba(0, 0, 0, 0.35); margin: 0.7em 0; }
 .title-author { font-weight: 600; font-size: 0.82em; color: #000; }
-.title-presenter { font-size: 0.68em; color: #000; margin: 0.15em 0 0.45em; }
-.title-presenter strong { font-weight: 600; }   // the weight of the authors' line
 .title-inst { font-size: 0.6em; color: rgba(0, 0, 0, 0.55); line-height: 1.35; }
 
 // Title and dividers: a white field on the left; on the right a ReynoldsRed panel
@@ -233,17 +231,6 @@ $ddet-tree-white: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w
   font-size: 0.6em;
   z-index: 1;
 }
-// the deck's own address, in the red panel between the tree mark and the date: the code, and
-// the link in words centred under it
-.reveal .slides section.title-custom .title-qr {
-  position: absolute; right: 92px; bottom: 104px; width: 170px;
-  background: #fff; border-radius: 10px; padding: 8px; box-sizing: border-box; z-index: 1;
-}
-.reveal .slides section.title-custom .title-qr img { width: 100%; display: block; margin: 0; }
-.reveal .slides section.title-custom .title-qrcap {
-  position: absolute; right: 27px; bottom: 74px; width: 300px; white-space: nowrap;
-  color: #fff; font-size: 0.5em; line-height: 1.35; text-align: center; z-index: 1;
-}
 .reveal .slides section.title-custom .title-footer {
   position: absolute;
   left: 0;
@@ -253,6 +240,44 @@ $ddet-tree-white: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w
 }
 .title-footer > p { display: contents; }
 .title-footer img { height: 2.3em; margin: 0; display: block; }
+
+// ---------- title slide: the cover of the ARS 2026 presenter template ----------
+// The cover of the meeting's presenter template (slide 2 of the ANS PowerPoint and LaTeX
+// templates, ans.org/meetings/ars2026): a full-bleed image, a bold white title standing on a
+// line at 57% of the height, the presenter lines as bullets under it, and a place for the
+// presenter's logo at the bottom left. The image is reveal's slide background, so it fills the screen (and
+// letterboxes on a screen that is not 16:9). The slide itself is 96% of the screen (reveal's
+// margin), so a template position of X px in 1280 is X / 0.96 - 27 px here, and Y px in 720
+// is Y / 0.96 - 15 px; vertical positions are measured from the slide's middle, so that a
+// taller stage keeps the text on the picture. The template's 56 pt title is set at 36 pt
+// here: this title is four lines long. The card with the deck's address is this deck's own
+// addition, on the sky of the picture.
+.reveal .slides section.title-ans { height: 100%; text-align: left; }
+.reveal .slides section.title-ans > * { position: absolute; margin: 0; }
+.reveal .slides section.title-ans .ans-title {
+  left: 12px; width: 906px; bottom: calc(50% - 56px);
+  font-weight: 700; font-size: 50px; line-height: 1.08; color: #fff; text-wrap: balance;
+}
+.reveal .slides section.title-ans .ans-who {
+  left: 22px; width: 896px; top: calc(50% + 72px); display: block;
+  list-style: disc; padding-left: 1.05em; color: #fff; font-size: 33px; line-height: 1.08;
+}
+.reveal .slides section.title-ans .ans-who li { margin: 0 0 13px 0; }
+.reveal .slides section.title-ans .ans-who li::marker { color: #fff; }
+.reveal .slides section.title-ans .ans-who li.role { font-style: italic; font-size: 28px; }
+.reveal .slides section.title-ans .ans-who li.role b { font-weight: 700; }
+// The template leaves a box for "logo or company name". NC State's brick goes there as it is:
+// the university's rule is that the logo is never adorned or put in a box of one's own
+// (brand.ncsu.edu, Logos and Marks), and that nothing comes closer to it than the width of
+// its N. The file is the official "White Text on Red Brick 2x2" from the brand downloads.
+.reveal .slides section.title-ans .ans-logo { left: 22px; top: calc(50% + 228px); }
+.reveal .slides section.title-ans .ans-logo img { height: 116px; width: auto; max-width: none; max-height: none; display: block; margin: 0; }
+.reveal .slides section.title-ans .ans-qr {
+  left: 990px; top: calc(50% - 215px); width: 270px; box-sizing: border-box; padding: 12px 12px 10px;
+  background: #fff; border-radius: 10px; text-align: center;
+}
+.reveal .slides section.title-ans .ans-qr img { width: 190px; max-width: none; max-height: none; display: block; margin: 0 auto; }
+.reveal .slides section.title-ans .ans-qr span { display: block; font-size: 15px; line-height: 1.3; color: #222; margin-top: 4px; white-space: nowrap; }
 
 // thank-you: the title's panel again, so the deck opens and closes on the same art.
 // The tree mark moves up to leave the lower half of the panel to the QR code.

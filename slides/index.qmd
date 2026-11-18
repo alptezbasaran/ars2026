@@ -3,43 +3,18 @@ pagetitle: "From ADS-IDAC to OpenPRA (ARS 2026)"
 format: revealjs
 ---
 
-## {#title .title-custom .no-band visibility="uncounted"}
+## {#title .title-ans .no-band visibility="uncounted" background-image="figs/ans-cover.jpg" background-size="contain" background-color="#001634"}
 
-::: {.title-kicker}
-ARS 2026 · ANS Winter Conference and Expo
-:::
-
-::: {.title-main}
-From ADS-IDAC to OpenPRA: Enabling Dynamic Probabilistic Risk Assessment for
-Advanced Reactors
-:::
-
-::: {.title-rule}
-:::
-
-::: {.title-author}
-Alp Tezbasaran and Mihai A. Diaconeasa
-:::
-
-::: {.title-presenter}
-Presenting: **Kirill Shumilov**
-:::
-
-::: {.title-inst}
-Department of Nuclear Engineering<br>
-Probabilistic Risk Assessment Group<br>
-North Carolina State University
-:::
-
-<div class="title-paneldate">Phoenix, Arizona · November 18, 2026</div>
-
-<div class="title-qrcap">alptezbasaran.github.io/ars2026</div>
-
-<div class="title-qr"><img src="figs/qr_deck.svg" alt="QR code: these slides, alptezbasaran.github.io/ars2026"></div>
-
-<div class="title-footer">
-<img src="figs/logo-ncstate.png" alt="NC State University">
-</div>
+```{=html}
+<div class="ans-title">From ADS-IDAC to OpenPRA: Enabling Dynamic Probabilistic Risk Assessment for Advanced Reactors</div>
+<ul class="ans-who">
+  <li>Alp Tezbasaran and Mihai A. Diaconeasa</li>
+  <li class="role">Presenting: <b>Kirill Shumilov</b></li>
+  <li class="role">Probabilistic Risk Assessment Group, North Carolina State University</li>
+</ul>
+<div class="ans-logo"><img src="figs/logo-ncstate-brick.png" alt="NC State University"></div>
+<div class="ans-qr"><img src="figs/qr_deck.svg" alt="QR code: these slides, alptezbasaran.github.io/ars2026"><span>alptezbasaran.github.io/ars2026</span></div>
+```
 
 ::: {.notes}
 Good morning. My name is Kirill Shumilov, and I am presenting work by Alp

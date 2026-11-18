@@ -136,9 +136,10 @@ def before_you_start(slides, total, wpm):
     skip = next(s for s in slides if s["id"] == SKIP)
     lo, hi = min(ANIM_S[s["id"]] for s in anims), max(ANIM_S[s["id"]] for s in anims)
     return [
-        ("The slides", f"Open {DECK_URL} in a browser and press F for full screen (the QR code on the title slide "
-                       f"is the same address). Keep {SLIDES_PDF} on the laptop too: the same deck, one page per "
-                       "slide, and it works without a network."),
+        ("The slides", f"The meeting's presenter template says to bring the slides on a USB drive and to use the "
+                       f"session room's laptop, not your own: put {SLIDES_PDF} on a drive. If that laptop has a "
+                       f"network connection, open {DECK_URL} in its browser instead and press F for full screen: "
+                       "the animations play there. The QR code on the title slide is the same address."),
         ("What to read", "Read the plain text aloud. Text in square brackets is a note to you, not speech."),
         ("Moving on", f"{len(talk)} screens: the title, {len(counted)} numbered slides, {len(anims)} animations and the "
                       "closing slide. One press of the right arrow or the clicker per screen; nothing builds inside "
