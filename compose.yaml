@@ -1,0 +1,63 @@
+# The toolchain for the ARS 2026 deck, one service per tool. Every image builds
+# natively on amd64 and arm64, and every service works on the repository through
+# a bind mount, so nothing needs to be installed on the host except Docker and make.
+#
+#   make images      build all images once
+#   make preview     live preview on http://localhost:4002
+#
+# The Makefile lists every target. The Quarto version, 1.6.40, is the one the
+# Pages workflow installs, so a local render and the published site match.
+
+services:
+  # Quarto: live preview and one-shot render.
+  slides:
+    build:
+      context: .
+    image: slides-ars2026/quarto:1.6.40
+    ports:
+      - "4002:4002"
+    volumes:
+      - .:/project
+    command: quarto preview slides/index.qmd --host 0.0.0.0 --port 4002 --no-browser
+
+  # TeX Live: TikZ sources in tikz/ to SVGs in slides/figs/tikz/.
+  texlive:
+    build:
+      context: tikz
+    image: slides-ars2026/texlive
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+
+  # Static server for the rendered deck, used by the QA suite and the exports, and
+  # for presenting or rehearsing from another screen (it listens on every
+  # interface). Never caches, so a reload always shows the current render.
+  # `make stop` takes it down; until then it restarts with Docker.
+  serve:
+    image: nginx:alpine
+    restart: unless-stopped   # comes back by itself after a reboot, like the other deck servers
+    ports:
+      - "${SERVE_PORT:-18091}:80"
+    volumes:
+      - ./slides:/usr/share/nginx/html:ro
+      - ./scripts/qa/nginx-no-store.conf:/etc/nginx/conf.d/default.conf:ro
+
+  # The site as GitHub Pages serves it, for `make deploy-test`: the rendered copy of the last
+  # commit under the repository's name, http://localhost:18092/ars2026/
+  pages:
+    image: nginx:alpine
+    ports:
+      - "${PAGES_PORT:-18092}:80"
+    volumes:
+      - ./.deploy-test/slides:/usr/share/nginx/html/ars2026:ro
+      - ./scripts/qa/nginx-no-store.conf:/etc/nginx/conf.d/default.conf:ro
+
+  # Python: the figure scripts in scripts/ and the QA suite in scripts/qa/.
+  # Inside the compose network the deck is at http://serve/index.html.
+  tools:
+    build:
+      context: scripts
+    image: slides-ars2026/tools
+    volumes:
+      - .:/work
+    working_dir: /work

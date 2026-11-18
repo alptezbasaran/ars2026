@@ -1,0 +1,553 @@
+/*-- scss:defaults --*/
+
+// SimpleDarkBlue (beamer) ported to reveal.js, NC State palette: the theme of the
+// defense deck, with this talk's sections and components.
+$red200: #CC0000;   // title band
+$red300: #B40000;   // bullets, accents
+$sec1: #990000;     // ReynoldsRed    Motivation
+$sec2: #D14905;     // PyromanFlame   Solver contract
+$sec3: #427E93;     // InnovationBlue Parallel engine
+$sec4: #6F7D1C;     // GenomicGreen   Demonstration
+$sec5: #008473;     // CarmichaelAqua Performance
+$sec6: #4156A1;     // BioIndigo      Outlook
+$sec7: #808080;     // NavGray        Backup
+$gray600: #666666;
+$gray900: #1A1A1A;
+
+$font-family-sans-serif: "Open Sans", system-ui, -apple-system, "Segoe UI",
+  Roboto, "Helvetica Neue", Arial, sans-serif;
+$presentation-font-size-root: 30px;
+$body-bg: #ffffff;
+$body-color: $gray900;
+$link-color: $sec3;
+$link-color-hover: darken($sec3, 10%);
+$selection-bg: $red200;
+$selection-color: #ffffff;
+$presentation-heading-font: $font-family-sans-serif;
+$presentation-heading-color: #ffffff;
+
+/*-- scss:rules --*/
+
+:root {
+  --sec-1: #{$sec1};
+  --sec-2: #{$sec2};
+  --sec-3: #{$sec3};
+  --sec-4: #{$sec4};
+  --sec-5: #{$sec5};
+  --sec-6: #{$sec6};
+  --sec-7: #{$sec7};
+  --navbar-h: 26px;
+}
+
+// ---------- frame title: solid red band, white text, full-bleed ----------
+.reveal .slides section > h2 {
+  background: $red200;
+  color: #fff;
+  font-weight: 400;
+  // A fixed size (1.15 x the 30px root), not 1.15em, so a per-slide fit trim scales
+  // the BODY only and every band is the same.
+  font-size: 34.5px;
+  // The band is tucked up under the fixed navbar. The negative top margin reaches
+  // past the deck's top inset at any window scale; the matching padding keeps the
+  // text where it was, and the excess red clips at the viewport edge behind the
+  // navbar. Dividers and no-band slides override margin-top and padding below.
+  // The bottom margin also takes a share of the extra stage height on a screen taller than
+  // 16:9 (--stage-extra, set by navbar.html), which moves the content down into the added room.
+  margin: -60px 0 calc(0.55em + var(--stage-extra, 0px) * 0.5) 0;
+  // The band runs edge to edge of the screen: a 400px overhang on both sides,
+  // clipped by the viewport at any window width, with the left padding grown by
+  // the same amount so the title text stays at the content edge.
+  padding: calc(0.28em + 62px) 0.6em calc(0.30em - 2px) 384.7px;
+  // Balance (2026-11-17, Alp: "top and bottom red paddings are not the same. The issue
+  // persists in every slide."): the strip above the band is 26 screen px tall at any window
+  // size while the slide scales, so a title placed from the slide's top had 6 to 19 px of red
+  // above its capitals against 15 to 23 px under its baseline, depending on the window.
+  // navbar.html publishes the strip's lower edge as --band-top, in stage px below the slide's
+  // top, and the whole band is shifted so that the title's line box starts 6.2 px under that
+  // edge: with Open Sans at this size the red above the capitals then equals the red that the
+  // bottom padding leaves under the baseline. 5.46px is where the edge would have to be for
+  // the unshifted band to be balanced (0.28em + 62px - 60px - 6.2px), so without the variable
+  // (the PDF export) nothing moves. The shift is relative positioning on purpose: it changes
+  // no layout, so the content under the band stays where the fit checks measured it. The top
+  // of the band is far above the screen either way. scripts/qa/band_balance.py measures it.
+  position: relative;
+  top: calc(var(--band-top, 5.46px) - 5.46px);
+  width: calc(100% + 800px);
+  margin-left: -400px;
+  border: 0;
+  text-transform: none;
+}
+.reveal .slides section { padding: 0 36px; box-sizing: border-box; }
+
+// dividers and plain slides: no red band
+.reveal .slides section.divider > h2,
+.reveal .slides section.no-band > h2 {
+  background: none;
+  color: #000;
+  font-weight: 300;
+  font-size: 1.9em;
+  width: auto;
+  margin-left: 0;
+  margin-top: 1.4em;
+  padding: 0;
+}
+
+// ---------- section dividers ----------
+.reveal .slides section.divider {
+  text-align: left;
+}
+.reveal .slides section.divider .div-rule {
+  width: 3.4em;
+  height: 4px;
+  margin: 0.6em 0 0.7em 0;
+}
+@for $i from 1 through 7 {
+  .reveal .slides section.divider[data-section="#{$i}"] .div-rule {
+    background: var(--sec-#{$i});
+  }
+}
+.reveal .slides section.divider .div-lede {
+  color: rgba(0, 0, 0, 0.55);
+  font-size: 0.85em;
+}
+
+// ---------- lists ----------
+.reveal ul { list-style-type: disc; }
+.reveal ul li::marker { color: $red300; }
+.reveal ul ul li::marker { color: $gray600; }
+.reveal ul ul { font-size: 0.92em; color: $gray600; }
+.reveal .slides section li { margin: 0.32em 0; }
+
+// fragments are disabled in _quarto.yml (no extra clicks), and with them off reveal
+// marks every fragment visible
+.reveal .slides section li.fragment { opacity: 1; transition: opacity .25s ease; }
+.reveal .slides section div.fragment { transition: opacity .25s ease; }
+
+// ---------- slideref footer (beamer footline center box) ----------
+.slideref {
+  position: absolute;
+  bottom: -0.4em;
+  left: 0;            // flush left with the content edge
+  width: 86%;
+  font-size: 12.6px;   // fixed (0.42 x the 30px root) so per-slide trims leave it alone
+  color: rgba(0, 0, 0, 0.65);
+  text-align: left;
+  line-height: 1.25;
+}
+
+// ---------- tables ----------
+.reveal table { font-size: 0.72em; border-collapse: collapse; }
+.reveal table th { border-bottom: 2px solid $gray900; border-top: 2px solid $gray900; }
+.reveal table td, .reveal table th { padding: 0.28em 0.7em; border-left: 0; border-right: 0; }
+.reveal table tr:last-child td { border-bottom: 2px solid $gray900; }
+.reveal table td code { white-space: nowrap; }   // an endpoint never breaks after its verb
+
+// ---------- cards ----------
+.card {
+  border: 1px solid rgba(0, 0, 0, 0.28);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.04);
+  padding: 0.5em 0.7em;
+  font-size: 0.72em;
+}
+.card.card-green { border-color: $sec4; background: rgba(111, 125, 28, 0.07); }
+.card.card-aqua  { border-color: $sec5; background: rgba(0, 132, 115, 0.07); }
+.card.card-blue  { border-color: $sec3; background: rgba(66, 126, 147, 0.07); }
+.card h4 { font-size: 1.0em; font-weight: 600; margin: 0 0 0.3em 0; color: $gray900; }
+.card ul { margin: 0; padding-left: 0.9em; }
+.card li { font-size: 0.95em; margin: 0.18em 0; }
+
+// ---------- title + thank-you slides ----------
+.reveal .slides section.title-custom,
+.reveal .slides section.thank-you {
+  text-align: left;
+}
+.reveal .slides section.title-custom::after,
+.reveal .slides section.thank-you::after {
+  content: "";
+  position: absolute;
+  left: -6%;
+  right: -6%;
+  bottom: 0;
+  height: 6px;
+  background: linear-gradient(to right,
+    $sec1 0 16.667%, $sec2 16.667% 33.333%, $sec3 33.333% 50%,
+    $sec4 50% 66.667%, $sec5 66.667% 83.333%, $sec6 83.333% 100%);
+}
+.title-kicker {
+  color: $red200;
+  font-size: 0.56em;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.title-main {
+  font-weight: 300;
+  font-size: 1.28em;
+  line-height: 1.28;
+  color: #000;
+  margin: 0.6em 0;
+}
+.title-rule { height: 1px; background: rgba(0, 0, 0, 0.35); margin: 0.7em 0; }
+.title-author { font-weight: 600; font-size: 0.82em; color: #000; }
+.title-presenter { font-size: 0.68em; color: #000; margin: 0.15em 0 0.45em; }
+.title-presenter strong { font-weight: 600; }   // the weight of the authors' line
+.title-inst { font-size: 0.6em; color: rgba(0, 0, 0, 0.55); line-height: 1.35; }
+
+// Title and dividers: a white field on the left; on the right a ReynoldsRed panel
+// with a slanted edge (the branch diagonal) carrying the white D-DET tree mark and
+// the date; wordmark bottom-left; six-color bar at the very bottom. Dividers reuse
+// the system with the panel in their section color. The tree ships as a data-URI
+// background, so no slide markup is needed; every child gets position:relative +
+// z-index so text paints above the panel (full-strength selectors throughout:
+// reveal's cascade beats bare class rules).
+$ddet-tree-white: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20480%20480%22%20width%3D%22960%22%20height%3D%22960%22%20fill%3D%22none%22%3E%0A%20%20%3Cdefs%3E%0A%20%20%20%20%3ClinearGradient%20id%3D%22flow%22%20x1%3D%2276%22%20y1%3D%220%22%20x2%3D%22444%22%20y2%3D%220%22%20gradientUnits%3D%22userSpaceOnUse%22%3E%0A%20%20%20%20%20%20%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23ffffff%22%2F%3E%0A%20%20%20%20%20%20%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%23ffffff%22%2F%3E%0A%20%20%20%20%3C%2FlinearGradient%3E%0A%20%20%20%20%3CradialGradient%20id%3D%22glow%22%20cx%3D%2250%25%22%20cy%3D%2250%25%22%20r%3D%2250%25%22%3E%0A%20%20%20%20%20%20%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23ffffff%22%20stop-opacity%3D%220.2%22%2F%3E%0A%20%20%20%20%20%20%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%23ffffff%22%20stop-opacity%3D%220%22%2F%3E%0A%20%20%20%20%3C%2FradialGradient%3E%0A%20%20%3C%2Fdefs%3E%0A%0A%20%20%3Ccircle%20cx%3D%2276%22%20cy%3D%22240%22%20r%3D%2244%22%20fill%3D%22url%28%23glow%29%22%2F%3E%0A%0A%20%20%3Cg%20stroke%3D%22url%28%23flow%29%22%20stroke-linecap%3D%22round%22%3E%0A%20%20%20%20%3Cline%20x1%3D%2276%22%20y1%3D%22240%22%20x2%3D%22160%22%20y2%3D%22240%22%20stroke-width%3D%2210%22%2F%3E%0A%20%20%20%20%3Cline%20x1%3D%22160%22%20y1%3D%22240%22%20x2%3D%22252%22%20y2%3D%22130%22%20stroke-width%3D%227%22%2F%3E%0A%20%20%20%20%3Cline%20x1%3D%22160%22%20y1%3D%22240%22%20x2%3D%22252%22%20y2%3D%22350%22%20stroke-width%3D%227%22%2F%3E%0A%20%20%20%20%3Cline%20x1%3D%22252%22%20y1%3D%22130%22%20x2%3D%22352%22%20y2%3D%2268%22%20stroke-width%3D%225%22%2F%3E%0A%20%20%20%20%3Cline%20x1%3D%22252%22%20y1%3D%22130%22%20x2%3D%22352%22%20y2%3D%22176%22%20stroke-width%3D%225%22%2F%3E%0A%20%20%20%20%3Cline%20x1%3D%22252%22%20y1%3D%22350%22%20x2%3D%22352%22%20y2%3D%22284%22%20stroke-width%3D%225%22%2F%3E%0A%20%20%20%20%3Cline%20x1%3D%22252%22%20y1%3D%22350%22%20x2%3D%22352%22%20y2%3D%22412%22%20stroke-width%3D%225%22%2F%3E%0A%20%20%20%20%3Cline%20x1%3D%22352%22%20y1%3D%2268%22%20x2%3D%22444%22%20y2%3D%2236%22%20stroke-width%3D%223.5%22%2F%3E%0A%20%20%20%20%3Cline%20x1%3D%22352%22%20y1%3D%2268%22%20x2%3D%22444%22%20y2%3D%22100%22%20stroke-width%3D%223.5%22%2F%3E%0A%20%20%20%20%3Cline%20x1%3D%22352%22%20y1%3D%22284%22%20x2%3D%22444%22%20y2%3D%22252%22%20stroke-width%3D%223.5%22%2F%3E%0A%20%20%20%20%3Cline%20x1%3D%22352%22%20y1%3D%22284%22%20x2%3D%22444%22%20y2%3D%22316%22%20stroke-width%3D%223.5%22%2F%3E%0A%20%20%20%20%3Cline%20x1%3D%22352%22%20y1%3D%22412%22%20x2%3D%22444%22%20y2%3D%22380%22%20stroke-width%3D%223.5%22%2F%3E%0A%20%20%20%20%3Cline%20x1%3D%22352%22%20y1%3D%22412%22%20x2%3D%22444%22%20y2%3D%22444%22%20stroke-width%3D%223.5%22%2F%3E%0A%20%20%3C%2Fg%3E%0A%0A%20%20%3Ccircle%20cx%3D%2276%22%20cy%3D%22240%22%20r%3D%2220%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%2276%22%20cy%3D%22240%22%20r%3D%2211%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22160%22%20cy%3D%22240%22%20r%3D%2212%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22252%22%20cy%3D%22130%22%20r%3D%229%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22252%22%20cy%3D%22350%22%20r%3D%229%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22352%22%20cy%3D%2268%22%20r%3D%227%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22352%22%20cy%3D%22284%22%20r%3D%227%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22352%22%20cy%3D%22412%22%20r%3D%227%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22352%22%20cy%3D%22176%22%20r%3D%226%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22444%22%20cy%3D%2236%22%20r%3D%225.5%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22444%22%20cy%3D%22100%22%20r%3D%225.5%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22444%22%20cy%3D%22252%22%20r%3D%225.5%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22444%22%20cy%3D%22316%22%20r%3D%225.5%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22444%22%20cy%3D%22380%22%20r%3D%225.5%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%22444%22%20cy%3D%22444%22%20r%3D%225.5%22%20fill%3D%22%23ffffff%22%2F%3E%0A%3C%2Fsvg%3E%0A");
+
+.reveal .slides section.title-custom {
+  height: 100%;
+  padding-top: calc(2.5em + var(--stage-extra, 0px) * 0.4);
+}
+.reveal .slides section.title-custom > * { position: relative; z-index: 1; }
+.reveal .slides section.title-custom::before {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; right: -6%;
+  width: 620px;
+  background-color: #990000;
+  background-image: $ddet-tree-white;
+  background-repeat: no-repeat;
+  background-size: 300px auto;
+  background-position: right 110px top calc(150px + var(--stage-extra, 0px) * 0.5);
+  clip-path: polygon(215px 0, 100% 0, 100% 100%, 0 100%);
+}
+.reveal .slides section.title-custom .title-main {
+  font-size: 1.3em;
+  max-width: 740px;
+  text-wrap: balance;
+}
+.reveal .slides section.title-custom .title-rule { width: 660px; }
+.reveal .slides section.title-custom .title-paneldate {
+  position: absolute;
+  right: 0.9em;
+  bottom: 1.15em;
+  color: #fff;
+  font-size: 0.6em;
+  z-index: 1;
+}
+// the deck's own address, in the red panel between the tree mark and the date: the code, and
+// the link in words centred under it
+.reveal .slides section.title-custom .title-qr {
+  position: absolute; right: 92px; bottom: 104px; width: 170px;
+  background: #fff; border-radius: 10px; padding: 8px; box-sizing: border-box; z-index: 1;
+}
+.reveal .slides section.title-custom .title-qr img { width: 100%; display: block; margin: 0; }
+.reveal .slides section.title-custom .title-qrcap {
+  position: absolute; right: 27px; bottom: 74px; width: 300px; white-space: nowrap;
+  color: #fff; font-size: 0.5em; line-height: 1.35; text-align: center; z-index: 1;
+}
+.reveal .slides section.title-custom .title-footer {
+  position: absolute;
+  left: 0;
+  bottom: 1.05em;
+  display: flex;
+  z-index: 1;
+}
+.title-footer > p { display: contents; }
+.title-footer img { height: 2.3em; margin: 0; display: block; }
+
+// thank-you: the title's panel again, so the deck opens and closes on the same art.
+// The tree mark moves up to leave the lower half of the panel to the QR code.
+.reveal .slides section.thank-you {
+  height: 100%;
+  padding-top: calc(3.1em + var(--stage-extra, 0px) * 0.4);
+}
+.reveal .slides section.thank-you > * { position: relative; z-index: 1; }
+.reveal .slides section.thank-you::before {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; right: -6%;
+  width: 620px;
+  background-color: #990000;
+  background-image: $ddet-tree-white;
+  background-repeat: no-repeat;
+  background-size: 250px auto;
+  background-position: right 130px top 64px;
+  clip-path: polygon(215px 0, 100% 0, 100% 100%, 0 100%);
+}
+.reveal .slides section.thank-you .title-footer {
+  position: absolute;
+  left: 0;
+  bottom: 1.05em;
+  display: flex;
+  z-index: 1;
+}
+.reveal .slides section.thank-you .ty-big {
+  font-weight: 300; font-size: 1.6em; color: #000; margin-top: 0.15em;
+}
+.reveal .slides section.thank-you .ty-contact {
+  font-size: 0.68em; color: rgba(0, 0, 0, 0.7); line-height: 1.5; margin-top: 1.4em;
+}
+.reveal .slides section.thank-you .ty-contact b { color: #000; font-size: 1.2em; }
+.reveal .slides section.thank-you .ty-ack {
+  font-size: 0.5em; color: rgba(0, 0, 0, 0.6); line-height: 1.4; max-width: 640px; margin-top: 1.5em;
+}
+// the QR code: a white card in the panel (a QR code needs its quiet zone), its
+// caption in white above it
+.reveal .slides section.thank-you .ty-qr {
+  position: absolute; right: 92px; bottom: 62px; width: 176px;
+  background: #fff; border-radius: 10px; padding: 8px; box-sizing: border-box;
+}
+.reveal .slides section.thank-you .ty-qr img { width: 100%; display: block; margin: 0; }
+.reveal .slides section.thank-you .ty-qrcap {
+  position: absolute; right: 92px; bottom: 250px; width: 300px;
+  color: #fff; font-size: 0.5em; line-height: 1.35; text-align: right;
+}
+.reveal .slides section.thank-you .ty-qrcap b { display: block; font-size: 1.25em; }
+
+// dividers: same panel, section-colored, tree constant
+.reveal .slides section.divider {
+  height: 100%;
+  padding-top: calc(4.2em + var(--stage-extra, 0px) * 0.4);
+}
+.reveal .slides section.divider > * { position: relative; z-index: 1; }
+.reveal .slides section.divider > h2 { max-width: 880px; }
+.reveal .slides section.divider .div-lede { max-width: 800px; }
+.reveal .slides section.divider::before {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; right: -6%;
+  width: 470px;
+  background-color: var(--sec-7);
+  background-image: $ddet-tree-white;
+  background-repeat: no-repeat;
+  background-size: 250px auto;
+  background-position: right 90px center;
+  clip-path: polygon(170px 0, 100% 0, 100% 100%, 0 100%);
+}
+@for $i from 1 through 7 {
+  .reveal .slides section.divider[data-section="#{$i}"]::before { background-color: var(--sec-#{$i}); }
+}
+
+// Chrome pre-rasters the scaled stage when it sits in a 3D rendering context,
+// which blurs every glyph at scale > 1. The deck uses transition: none, so the
+// perspective that reveal sets for 3D transitions buys nothing.
+.reveal .slides { perspective: none; }
+
+// ---------- per-slide sizes ----------
+// A section-level font size per slide: the em-sized children scale together, so each slide's
+// content fills the 1280 x 720 stage down to its slideref line (or to about 30 px above the
+// stage bottom). Images do not scale with it; their widths are set on the slide.
+// `scripts/qa/screen_fit.py --fill` prints how much room each slide uses, and `--autofit`
+// the largest factor that still fits. Measure again after editing a slide.
+.reveal .slides {
+  section#two-barriers { font-size: 1.3em; }
+  section#two-moves { font-size: 1.18em; }
+  section#rest-contract { font-size: 1.13em; }
+  section#memory-fault { font-size: 1.26em; }
+  section#browser-workflow { font-size: 1.18em; }
+  section#perf-workstation { font-size: 1.1em; }
+  section#large-trees { font-size: 1.14em; }
+  section#large-trees-efficiency { font-size: 1.06em; }
+  section#b-multinode { font-size: 1.1em; }
+  section#toward-openpra { font-size: 1.06em; }
+  section#conclusions { font-size: 1.18em; }
+  section#b-baselines { font-size: 1.3em; }
+  section#b-perf-table { font-size: 1.03em; }
+  section#b-wall-times { font-size: 1.08em; }
+  section#b-resume { font-size: 1.26em; }
+}
+
+// the screenshot beside the comparison table sits at the table's middle, not at its top
+// (Quarto's columns are inline blocks, so this is vertical-align, not align-items)
+.reveal .slides section#two-reactors .columns > .column { vertical-align: middle; }
+
+// figure-only backups: the figure sits lower, about centered in its room
+.reveal .slides section#b-idac-loop .quarto-figure { margin-top: 1.6em; }
+
+// ---------- components ----------
+// fact list beside a table or a figure: a rule on the left, a bold line, a muted line
+.reveal .slides section .facts { display: flex; flex-direction: column; gap: 0.5em; font-size: 0.8em; text-align: left; margin-top: 0.15em; }
+.reveal .slides section .facts .fact { border-left: 3px solid $sec3; padding: 0.1em 0 0.1em 0.6em; line-height: 1.3; }
+.reveal .slides section .facts .fact b { display: block; color: $gray900; }
+.reveal .slides section .facts .fact span { display: block; font-size: 0.78em; color: rgba(0, 0, 0, 0.6); }
+@for $i from 1 through 6 {
+  .reveal .slides section[data-section="#{$i}"] .facts .fact { border-left-color: var(--sec-#{$i}); }
+}
+
+// cards in a row: a name, a line of explanation, optionally a large figure with its
+// caption and a note under a hairline
+.reveal .slides section .xcards { display: flex; gap: 0.7em; margin: 0.35em 0 0.2em 0; text-align: left; }
+.reveal .slides section .xcards .xcard { flex: 1 1 0; border: 1px solid #cfc3bf; border-radius: 8px; padding: 0.5em 0.75em 0.55em 0.75em; background: #fbfbfc; line-height: 1.3; }
+.reveal .slides section .xcards .x-name { font-weight: 700; color: $red300; font-size: 0.9em; margin-bottom: 0.15em; }
+.reveal .slides section .xcards .x-how { font-size: 0.7em; color: #222; }
+.reveal .slides section .xcards .x-big { font-size: 1.5em; font-weight: 700; color: $gray900; line-height: 1.1; margin: 0.3em 0 0.05em 0; }
+.reveal .slides section .xcards .x-big .arr { color: rgba(0, 0, 0, 0.4); font-weight: 400; padding: 0 0.12em; }
+.reveal .slides section .xcards .x-cap { font-size: 0.62em; color: rgba(0, 0, 0, 0.62); }
+.reveal .slides section .xcards .x-note { font-size: 0.64em; color: #222; border-top: 1px solid #ece5e2; padding-top: 0.35em; margin-top: 0.5em; }
+.reveal .slides section .xcards code { font-size: 0.9em; }
+
+// three columns under a colored rule: a small-caps kicker, a head, a short list
+.reveal .slides section .cols3 { display: flex; gap: 0.9em; text-align: left; margin-top: 0.25em; }
+.reveal .slides section .cols3 .col { flex: 1 1 0; border-top: 4px solid $gray600; padding: 0.4em 0.15em 0.1em 0.15em; }
+.reveal .slides section .cols3 .k { font-size: 0.6em; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: $gray600; }
+.reveal .slides section .cols3 .h { font-size: 0.88em; font-weight: 700; color: $gray900; margin: 0.1em 0 0.3em 0; line-height: 1.25; }
+.reveal .slides section .cols3 ul { margin: 0.3em 0 0 0; padding-left: 1em; font-size: 0.7em; }
+.reveal .slides section .cols3 li { margin: 0.32em 0; line-height: 1.3; }
+@each $name, $c in (c1: $sec1, c2: $sec2, c3: $sec3, c4: $sec4, c5: $sec5, c6: $sec6) {
+  .reveal .slides section .cols3 .col.#{$name} { border-color: $c; }
+  .reveal .slides section .cols3 .col.#{$name} .k { color: $c; }
+}
+
+// one statement in a band with a red rule on its left
+.reveal .slides section .band-note {
+  margin-top: 0.7em; border: 1px solid #cfc3bf; border-left: 5px solid $red200; border-radius: 6px;
+  padding: 0.45em 0.8em; font-size: 0.78em; line-height: 1.35; background: #fbfbfc; text-align: left;
+}
+.reveal .slides section .band-note code { color: $red300; font-weight: 700; font-size: 0.95em; }
+
+// pills in a row
+.reveal .slides section .chips { display: flex; flex-wrap: wrap; gap: 0.35em 0.45em; align-items: center; justify-content: center; margin: 0.4em 0 0.3em 0; }
+.reveal .slides section .chips i { font-style: normal; font-size: 0.66em; border: 1px solid #cfc3bf; border-radius: 999px; padding: 0.12em 0.85em; color: #333; background: #fff; white-space: nowrap; }
+.reveal .slides section .chips i b { color: $gray900; }
+.reveal .slides section .chips .lead { font-size: 0.62em; color: rgba(0, 0, 0, 0.6); }
+
+// screenshots in a row, each with a caption
+.reveal .slides section .shots { display: flex; gap: 0.6em; margin: 0.25em 0 0.3em 0; align-items: flex-start; }
+.reveal .slides section .shots figure { flex: 1 1 0; margin: 0; }
+.reveal .slides section .shots img {
+  width: 100%; display: block; border: 1px solid rgba(0, 0, 0, 0.28); border-radius: 6px; margin: 0;
+  aspect-ratio: 4 / 3; object-fit: cover; object-position: left top;   // one frame for every view
+}
+.reveal .slides section .shots figcaption { font-size: 0.62em; color: rgba(0, 0, 0, 0.65); line-height: 1.3; margin-top: 0.4em; text-align: left; }
+.reveal .slides section .shots figcaption b { color: $gray900; display: block; font-size: 1.12em; }
+.reveal .slides section img.shot { border: 1px solid rgba(0, 0, 0, 0.28); border-radius: 6px; }
+
+// the space reactor schematic: a light-theme capture on a white slide, so it has no frame.
+// On #two-reactors it carries a caption, and its right edge runs out where the diagram
+// continues (`.fade`); on #b-space-reactor it spans the slide, and the note sits in the white
+// corner the capture leaves above the reactor (`.whole`). The pixel cap is the width that 96%
+// gives on screen: reveal's print layout drops the section's side padding, so without the cap
+// the figure grew to 1229 px in the PDF, the slide overflowed, and a blank page followed it.
+.reveal .slides section figure.schem { margin: 0; text-align: left; position: relative; }
+.reveal .slides section figure.schem.whole { width: 96%; max-width: 1160px; margin: 0 auto; }
+.reveal .slides section figure.schem img { width: 100%; max-width: none; max-height: none; display: block; margin: 0; }
+.reveal .slides section figure.schem.fade img {
+  -webkit-mask-image: linear-gradient(to right, #000 94%, transparent 100%);
+  mask-image: linear-gradient(to right, #000 94%, transparent 100%);
+}
+.reveal .slides section figure.schem figcaption { font-size: 0.6em; color: rgba(0, 0, 0, 0.66); line-height: 1.3; margin: 0.4em 0 0 0.25em; }
+.reveal .slides section figure.schem .schem-note { position: absolute; left: 0.6%; top: 0; width: 51%; font-size: 0.62em; line-height: 1.34; color: #222; }
+.reveal .slides section figure.schem .schem-note p { margin: 0 0 0.3em 0; padding-left: 0.6em; border-left: 3px solid $sec4; }
+.reveal .slides section .schem-line { font-size: 0.7em; margin-top: 0.35em; }
+// a wide picture under a row of plates (#large-trees); there the two numbers of a plate
+// stand on one baseline, and on #large-trees-efficiency the pair fits its narrower plate
+.reveal .slides section#large-trees .plate .p-nums { align-items: flex-end; gap: 0.8em; }
+.reveal .slides section#large-trees .plate .p-num:not(.hero) { font-size: 1.22em; }
+.reveal .slides section#large-trees-efficiency .plate .p-num { font-size: 1.2em; }
+.reveal .slides section#large-trees-efficiency .plate .p-lab { font-size: 0.5em; letter-spacing: 0.04em; }
+.reveal .slides section#large-trees-efficiency .plate .p-nums { gap: 0.45em; }
+.reveal .slides section figure.schem.strip { margin-top: 0.5em; }
+.reveal .slides section figure.schem.strip figcaption { font-size: 0.66em; margin: 0.35em 0 0 0; }
+
+// the headline figure and the factors it is made of, as one line across the slide:
+// 156x = 3.9x x 2 to 2.5x x about 4x x about 4x
+.reveal .slides section .eq { display: flex; align-items: stretch; gap: 0.32em; margin: 0.1em 0 0.45em 0; text-align: left; }
+.reveal .slides section .eq .eq-total { flex: 0 0 auto; display: flex; align-items: center; gap: 0.4em; }
+.reveal .slides section .eq .eq-total b { font-size: 2.7em; font-weight: 700; color: $red300; line-height: 1; }
+.reveal .slides section .eq .eq-total span { font-size: 0.62em; color: rgba(0, 0, 0, 0.68); line-height: 1.3; width: 11.2em; }
+.reveal .slides section .eq .eq-total strong { color: $gray900; }
+.reveal .slides section .eq .eq-op { align-self: center; color: rgba(0, 0, 0, 0.42); font-size: 0.95em; }
+.reveal .slides section .eq .f { flex: 1 1 0; min-width: 0; border: 1px solid #cfc3bf; border-radius: 6px; background: #fbfbfc; padding: 0.4em 0.2em 0.45em 0.2em; text-align: center; display: flex; flex-direction: column; justify-content: center; }
+.reveal .slides section .eq .f b { display: block; font-size: 0.98em; color: $gray900; white-space: nowrap; }
+.reveal .slides section .eq .f span { display: block; font-size: 0.6em; color: rgba(0, 0, 0, 0.64); line-height: 1.25; margin-top: 0.15em; }
+
+// stat plates: a tree, its size, and what it cost
+.reveal .slides section .plates { display: flex; gap: 0.8em; text-align: left; margin-top: 0.3em; }
+.reveal .slides section .plate { flex: 1 1 0; min-width: 0; border: 1px solid #c9ced6; border-left: 5px solid $sec3; border-radius: 8px; background: #fbfbfc; padding: 0.5em 0.9em 0.6em 0.9em; }
+.reveal .slides section .plate.p2 { border-left-color: $sec4; }
+.reveal .slides section .plate .p-name { font-weight: 700; font-size: 0.94em; color: $gray900; }
+.reveal .slides section .plate .p-sub { font-size: 0.68em; color: rgba(0, 0, 0, 0.62); margin-bottom: 0.35em; }
+.reveal .slides section .plate .p-nums { display: flex; gap: 0.6em; align-items: flex-start; }
+.reveal .slides section .plate .p-nums .go { font-size: 1.3em; color: rgba(0, 0, 0, 0.4); line-height: 1.25; }
+.reveal .slides section .plate .p-num { font-size: 1.46em; font-weight: 700; line-height: 1.1; color: $gray900; white-space: nowrap; }
+// the number a plate is about: the sequence count of a tree
+.reveal .slides section .plate .p-num.hero { font-size: 2.3em; color: $red300; }
+.reveal .slides section .plate .p-num .arr { color: rgba(0, 0, 0, 0.4); font-weight: 400; padding: 0 0.1em; }
+.reveal .slides section .plate .p-lab { font-size: 0.56em; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 700; color: rgba(0, 0, 0, 0.6); margin: 0.1em 0 0.4em 0; white-space: nowrap; }
+.reveal .slides section .plate .p-line { font-size: 0.76em; line-height: 1.32; color: #222; margin-top: 0.3em; }
+.reveal .slides section .tag {
+  display: inline-block; font-size: 0.58em; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700;
+  color: #fff; background: $sec5; border-radius: 999px; padding: 0.12em 0.9em;
+}
+
+// from the engine to the ecosystem: two marks and an arrow
+.reveal .slides section .arc { display: flex; align-items: center; justify-content: center; gap: 1.2em; margin: 0.1em 0 0.35em 0; }
+.reveal .slides section .arc .node { text-align: center; }
+.reveal .slides section .arc img { height: 150px; margin: 0 auto; display: block; }
+.reveal .slides section .arc img.wide { height: 84px; border-radius: 10px; }
+.reveal .slides section .arc .cap { font-size: 0.62em; color: rgba(0, 0, 0, 0.65); margin-top: 0.35em; line-height: 1.3; }
+.reveal .slides section .arc .cap b { color: $gray900; display: block; font-size: 1.2em; }
+.reveal .slides section .arc .go { font-size: 1.5em; color: $red300; line-height: 1; }
+.reveal .slides section .arc .via { border: 1px solid #cfc3bf; border-radius: 8px; padding: 0.45em 0.85em; background: #fbfbfc; font-size: 0.64em; line-height: 1.4; text-align: left; }
+.reveal .slides section .arc .via b { color: $gray900; }
+
+// ---------- fixed nav strip (injected by navbar.html) ----------
+#sdb-navbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--navbar-h);
+  display: flex;
+  z-index: 40;
+  font-family: $font-family-sans-serif;
+}
+#sdb-navbar .cell {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+}
+@for $i from 1 through 7 {
+  #sdb-navbar .cell[data-cell="#{$i}"] { background: color-mix(in srgb, var(--sec-#{$i}) 22%, white); }
+  #sdb-navbar.active-#{$i} .cell[data-cell="#{$i}"] {
+    background: var(--sec-#{$i});
+    color: #fff;
+    font-weight: 700;
+  }
+}
+// navbar.html hides the strip on the title and thank-you slides; print hides it below
+#sdb-navbar.navbar-hidden { display: none; }
+html.print-pdf #sdb-navbar { display: none; }
+
+// custom slide number, bottom right, clear of the flush-left slideref
+#sdb-slideno {
+  position: fixed;
+  right: 18px; bottom: 10px;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.6);
+  z-index: 40;
+  font-family: $font-family-sans-serif;
+}
+html.print-pdf #sdb-slideno { display: none; }
+
+// PDF export: reveal makes each page 4% larger than the slide and centers the slide on it,
+// and Quarto gives a section the PAGE's height. A one-line slideref, which hangs 5 px under
+// its section, then fell below the page edge and was cut off (a two-line one lost its second
+// line). The section keeps the slide's height instead.
+html.print-pdf .reveal .slides .pdf-page > section { height: 720px !important; }
+
+// keep reveal content clear of the fixed strip
+.reveal .slides { margin-top: calc(var(--navbar-h) * 0.4); }
+
+// ---------- misc ----------
+.reveal .slides section .columns { align-items: flex-start; }
+.reveal .slides section .columns .card { margin-right: 0.4em; }
+.reveal img { margin: 0.2em 0; }
+.reveal .slides section code { color: #333; }
+
+// animation slides: the statement of what the animation shows lives inside the
+// iframe page; the section heading exists for the outline only and is removed
+// from layout
+.reveal .slides section[data-background-iframe] > h2 { display: none; }

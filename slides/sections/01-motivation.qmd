@@ -1,0 +1,163 @@
+## Advanced reactors are where the fixed event tree is weakest {#why-dynamic data-section="1"}
+
+:::: {.columns}
+::: {.column width="44%"}
+::: {style="font-size:0.9em;"}
+- **Passive safety**: success is the outcome of a thermal-hydraulic
+  trajectory, not a component state
+- **Sparse operating experience**: little history from which to fix the
+  sequences in advance
+- **New operating concepts**: reduced staffing, remote supervision,
+  autonomous control
+:::
+
+::: {style="font-size:0.8em; margin-top:0.9em;"}
+Risk-informed, performance-based licensing asks for defensible coverage of
+sequences and uncertainties, [not a handful of bounding
+scenarios.]{style="color:#B40000;"}
+:::
+:::
+::: {.column width="56%"}
+[**Classical PRA**: structure and timing are fixed before any computation.]{style="font-size:0.74em; display:block;"}
+
+![](figs/tikz/classical-et.svg){fig-align="center" width="100%"}
+
+[**Dynamic PRA**: the tree grows while a simulator runs; plant, crew and hardware co-evolve, and the sequences are an *output*.]{style="font-size:0.74em; display:block; margin-top:0.7em;"}
+
+![](figs/tikz/dpra-tree.svg){fig-align="center" width="100%"}
+:::
+::::
+
+::: {.slideref}
+NEI 18-04, Rev. 1 (2019); NRC Regulatory Guide 1.233 (2020); Aldemir, *Ann. Nucl. Energy* **52** (2013).
+:::
+
+::: {.notes}
+Why do advanced reactors need dynamic PRA? A classical PRA fixes the accident
+sequences before any computation: the analyst draws the event tree, and timing
+enters only through success criteria and human error probabilities.
+
+That is weakest exactly where advanced reactors differ from the operating
+fleet. Passive safety is not a component that works or fails; its success is
+the outcome of a thermal-hydraulic transient. There is little operating
+experience to fix the sequences in advance. And the operating concepts are
+new: reduced staffing, remote supervision, autonomous control.
+
+Dynamic PRA grows the tree while a simulator runs, so the sequences are an
+output of the analysis, not an input.
+:::
+
+## How a dynamic event tree is built {#anim-det data-section="1" background-iframe="assets/anim/det-animation.html" background-interactive="true" visibility="uncounted" .no-band}
+
+::: {.notes}
+[Animation. It starts by itself, runs about thirty-eight seconds and stops on
+its last picture. Start reading as soon as it appears, and move on when you
+have finished the text. The slide PDF shows the last picture only; the text is
+the same.]
+
+Here is how such a tree is built. A plant simulation starts at the initiating
+event, on the left. At every pivotal event, marked with a flag, the full state
+is saved, and one branch starts for each possible outcome: a component fails
+or holds, the crew acts early or late. Between the flags it is deterministic
+physics.
+
+Each branch carries a conditional probability, and the sequences end at
+different times, in different end states. The tree is the output. And every
+pivotal event is a record: the time, the saved state, the trigger, and each
+alternative with its probability.
+:::
+
+## Two barriers to routine dynamic PRA {#two-barriers data-section="1"}
+
+```{=html}
+<div class="xcards">
+  <div class="xcard">
+    <div class="x-name">Monolithic coupling</div>
+    <div class="x-how">The engine is welded to one physics code, in one process. Retargeting it to the physics of an advanced reactor means merging code.</div>
+    <div class="x-big">1 code</div>
+    <div class="x-cap">RELAP5/MOD3.3 was the only physics ADS-IDAC could drive, built with one compiler on one workstation</div>
+  </div>
+  <div class="xcard">
+    <div class="x-name">Combinatorial growth</div>
+    <div class="x-how">Every branch point multiplies the sequences, and every sequence is a full transient. A study of realistic scope is compute-bound.</div>
+    <div class="x-big">10<sup>4</sup> to 10<sup>5</sup></div>
+    <div class="x-cap">simulations, perhaps more: a proper dynamic PRA takes tens to hundreds of thousands of full transients, and the original engine ran them one at a time</div>
+  </div>
+</div>
+```
+
+::: {style="font-size:0.8em; margin-top:0.6em;"}
+**ADS-IDAC** couples RELAP5, the IDAC crew cognitive model and hardware
+reliability, and it showed both barriers.
+[This talk: the two architectural moves that remove them, and what they
+measurably buy.]{style="color:#B40000;"}
+:::
+
+::: {.slideref}
+ADS-IDAC: Coyne and Mosleh, *Int. J. Performability Eng.* **10** (2014). IDAC: Chang and Mosleh, *Reliab. Eng. Syst. Saf.* **92** (2007).
+:::
+
+::: {.notes}
+If the method fits this well, why is it not in routine use? The method is more
+than twenty years old, and what held it back is tooling. Two barriers keep
+coming back.
+
+The first is monolithic coupling: the engine is welded to one physics code, in
+one process, so moving it to the physics of an advanced reactor means merging
+code.
+
+The second is combinatorial growth: every branch point multiplies the
+sequences, and each sequence is a full transient. A proper dynamic PRA takes
+tens to hundreds of thousands of simulations, perhaps more.
+
+ADS-IDAC, which couples RELAP5, the IDAC crew model, and hardware reliability,
+had both: one physics code, and one sequence at a time.
+:::
+
+## Two moves that remove the barriers {#two-moves data-section="1"}
+
+```{=html}
+<div class="cols3">
+  <div class="col c2">
+    <div class="k">Move 1</div>
+    <div class="h">Physics becomes a service</div>
+    <ul>
+      <li>the PRA core (time, branching, the crew model) is separated from plant physics</li>
+      <li>a documented HTTP/REST contract of six endpoints</li>
+      <li>a new code, a surrogate or a digital twin couples by implementing endpoints, not by merging code</li>
+    </ul>
+  </div>
+  <div class="col c3">
+    <div class="k">Move 2</div>
+    <div class="h">The tree is traversed in parallel</div>
+    <ul>
+      <li>an MPI server and workers</li>
+      <li>the server handles metadata only</li>
+      <li>restart state travels worker to worker; LZ4 compression keeps it small</li>
+    </ul>
+  </div>
+  <div class="col c5">
+    <div class="k">Evidence</div>
+    <div class="h">Demonstrated and measured</div>
+    <ul>
+      <li>a browser workflow with no MPI and no Fortran</li>
+      <li>one contract, a PWR and a space fission reactor</li>
+      <li>measured speedups, from a workstation to a cluster</li>
+    </ul>
+  </div>
+</div>
+<div class="band-note"><code>checkpoint()</code> and <code>restore()</code>: one primitive under all of it. It gives branching, distribution across workers, and whole-study fault tolerance.</div>
+```
+
+::: {.notes}
+So the work is two moves, one for each barrier.
+
+The first move separates the PRA core, meaning time advancement, branching,
+and the crew model, from the plant physics. Physics becomes a service behind a
+documented interface. The second move traverses the tree in parallel.
+
+Both rest on one primitive, checkpoint and restore: save the complete state of
+a simulation, and bring it back to life somewhere else.
+
+I will take the two moves in turn, and then show the evidence.
+:::

@@ -1,0 +1,33 @@
+\documentclass[tikz,border=4pt]{standalone}
+\input{preamble}
+% Stages: compile with \def\StageOne{1} (etc.) for per-stage SVGs; default = all.
+\begin{document}
+\begin{tikzpicture}[>=Stealth, font=\footnotesize,
+    pe/.style={circle, draw, fill=black!12, inner sep=1.8pt},
+    es/.style={rectangle, draw, rounded corners, font=\scriptsize,
+               inner sep=2.5pt, align=center},
+    ok/.style={es, draw=MediumGreen, fill=MediumGreen!20},
+    deg/.style={es, draw=HuntYellow!80!black, fill=HuntYellow!35},
+    cd/.style={es, draw=red300, fill=red300!15},
+    br/.style={thick},
+    plab/.style={font=\tiny, text=black!60}]
+  \draw[->, black!55] (0,-1.30) -- (11.2,-1.30)
+    node[above left=0.02cm and 0.02cm, font=\scriptsize, text=black!70]
+    {simulation time};
+  \node[pe, label={[font=\scriptsize]left:IE}] (ie) at (0,0) {};
+  \node[pe, label={[font=\scriptsize]above:PE$_1$}] (p1) at (3.0,0) {};
+  \draw[br] (ie) -- (p1);
+  \node[cd] (cdes) at (5.4,-0.88) {Core damage};
+  \node[pe, label={[font=\scriptsize]above:PE$_2$}] (p2) at (6.4,0.62) {};
+  \draw[br] (p1) -- (cdes);
+  \draw[br] (p1) -- (p2);
+  \node[ok]  (safe) at (10.2,0.98) {Safe};
+  \node[deg] (dege) at (10.2,0.15) {Degraded};
+  \draw[br] (p2) -- (safe);
+  \draw[br] (p2) -- (dege);
+  \node[plab] at (3.9,-0.62) {$p_1$};
+  \node[plab] at (4.5,0.5)   {$1-p_1$};
+  \node[plab] at (8.2,1.05)  {$p_2$};
+  \node[plab] at (8.2,0.18)  {$1-p_2$};
+\end{tikzpicture}
+\end{document}

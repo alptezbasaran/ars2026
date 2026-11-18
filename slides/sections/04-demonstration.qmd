@@ -1,0 +1,90 @@
+## Dynamic event trees from a web browser {#browser-workflow data-section="4"}
+
+```{=html}
+<div class="shots">
+  <figure><img src="figs/screens/model-builder-tile.png" alt="Model Builder: the diagram of a three-loop PWR, with its pumps, steam generators and injection systems">
+    <figcaption><b>Model Builder</b>choose the domain, configure components and initial conditions, schedule operator actions</figcaption></figure>
+  <figure><img src="figs/screens/monitor-tile.png" alt="Monitor: a Gantt chart of sequences forking at branch points">
+    <figcaption><b>Monitor</b>the tree grows live: every bar is a sequence, forking at branch points, ending in its own state</figcaption></figure>
+  <figure><img src="figs/screens/results-tile.png" alt="Results: a graph of pivotal events over simulation time">
+    <figcaption><b>Results</b>a pivotal-event plotter: ancestry tracing, idle-gap compression, sequence search</figcaption></figure>
+</div>
+```
+
+::: {style="font-size:0.78em; margin-top:0.5em;"}
+Checkpoint and restore branching, pivotal events from trip firings, lumping
+of simultaneous trips: **no MPI, no Fortran, no local toolchain.**
+:::
+
+::: {style="font-size:0.66em; color:#555555; margin-top:0.5em;"}
+Branching here comes from scheduled operator actions and trip firings; the
+cognitive branching of the IDAC crew model stays in the C++ engine, which
+drives the same solvers through the same contract. A solver that runs here is
+ready for the parallel engine.
+:::
+
+::: {.notes}
+The same interface also makes the method easier to get into. A web workflow
+builds dynamic event trees from a browser, against any solver that implements
+the interface.
+
+In the model builder, on the left, you choose the domain, configure the plant,
+and schedule operator actions. The monitor, in the middle, shows the tree
+growing live: every bar is a sequence, forking at branch points. And the
+results view, on the right, is an interactive plot of the pivotal events. None
+of it needs MPI, Fortran, or a local toolchain.
+
+One clarification. Branching here comes from scheduled operator actions and
+trip firings; the cognitive branching of the IDAC crew model stays in the C++
+engine, which drives the same solvers through the same interface.
+:::
+
+## One interface, two very different reactors {#two-reactors data-section="4"}
+
+:::: {.columns}
+::: {.column width="52%"}
+| | **PWR** | **Space reactor** |
+|:------|:-----------------------|:-----------------------|
+| **plant** | generic three-loop benchmark | nuclear electric propulsion |
+| **solver** | RELAP5/MOD3.3, and a lumped service in a few hundred lines | a solver service with its mapper |
+| **signals** | 15 control variables (lumped service) | 32 control variables, 40 trips |
+| **actions** | operator actions in a loss of offsite power | drum adjustment, load shedding, converter restart |
+| **responder** | a control-room crew | a software policy, in the crew's slot |
+:::
+::: {.column width="48%"}
+```{=html}
+<figure class="schem fade">
+  <img src="figs/screens/space-reactor-core.png" alt="Schematic of the space reactor in the Model Builder: a reactor with six control drums and a shield, twelve sodium heat pipes, a closed Brayton converter and four radiator panels">
+  <figcaption>The space fission reactor in the same Model Builder: a model built from public SR-1 Freedom information.</figcaption>
+</figure>
+```
+:::
+::::
+
+::: {style="font-size:0.86em; margin-top:0.45em;"}
+The contract, the branching logic, the browser workflow and the analysis
+tooling are the same for both;
+[only the solver service and its mapper differ.]{style="color:#B40000;"}
+:::
+
+::: {.slideref}
+A third solver, a race-car dynamics model, exists only to show that nothing in the contract is nuclear-specific.
+:::
+
+::: {.notes}
+Does the interface really work for any solver? The paper tests that with two
+very different plants behind the same interface.
+
+The first is the PWR: RELAP5 at full fidelity, and beside it a lumped PWR
+service that implements the interface in a few hundred lines.
+
+The second, in the picture, is a compact space fission reactor for nuclear
+electric propulsion: control drums, heat pipes, a closed Brayton converter,
+radiators, and Hall thrusters, with thirty-two control variables and forty
+trips. It is built from the public information on NASA's SR-1 Freedom.
+
+The space reactor was chosen on purpose. With remote and autonomous operation,
+a software policy takes the place of the control-room crew, and this is an
+area where dynamic PRA has no established tooling. Between the two reactors,
+only the solver service and its mapper differ.
+:::

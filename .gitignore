@@ -1,0 +1,44 @@
+# Quarto build artifacts
+_site/
+_freeze/
+.quarto/
+.cache/
+.sass-cache/
+
+# Rendered deck. `make render` only ever produces slides/index.html, but
+# rendering a section .qmd or a .md on its own drops an .html plus an 8 MB
+# _files/ bundle next to the source. Ignore the shape, not the one filename.
+slides/index.html
+slides/index_files/
+*.html
+*_files/
+!slides/assets/**/*.html
+!slides/figs/**/*.html
+!script/*.html
+
+# TikZ intermediates (SVGs in slides/figs/tikz ARE committed)
+tikz/build/
+
+.DS_Store
+
+/.quarto/
+dist/
+
+# QA outputs and the PDF export's captured frames are derived; the PDFs live in dist/
+scripts/qa/out/
+slides/assets/anim/frames/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# The uncropped captures the screenshots are cut from. Two of them show names that the
+# public material does not use; the cut files under slides/figs/screens/ are what the deck needs.
+scripts/data/screens/
+
+# `make deploy-test`: a rendered copy of the last commit
+.deploy-test/
+
+# Working notes, kept out of the public repository
+CLAUDE.md
+speech-script-author.md

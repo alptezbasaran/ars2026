@@ -1,0 +1,31 @@
+project:
+  type: default
+
+format:
+  revealjs:
+    width: 1280
+    height: 720
+    margin: 0.04
+    fragments: false   # as in the defense deck: no extra clicks
+    history: false     # hash stays on for #/id jumps; no history push, so a trackpad back-swipe cannot rewind a slide
+    theme: [default, slides/theme/theme.scss]
+    slide-number: false
+    transition: none
+    background-transition: none
+    auto-stretch: false
+    toc: false
+    preview-links: auto
+    menu:
+      openButton: false   # hamburger hidden; the menu stays on key m
+    html-math-method:
+      method: mathjax
+      url: "assets/vendor/mathjax/MathJax.js?config=TeX-AMS_HTML-full"
+    include-in-header:
+      - text: |
+          <link href="assets/fonts/open-sans.css" rel="stylesheet">
+          <link rel="icon" href="data:,">
+          <script>window.MathJax = { "HTML-CSS": { availableFonts: ["TeX"], preferredFont: "TeX", webFont: "TeX", imageFont: null } };</script>
+    include-after-body:
+      - slides/assets/js/navbar.html
+
+editor: source

@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The interface in action: an advanced reactor simulator, a PWR, a space reactor</title>
+<style>
+@import url("../fonts/open-sans.css");
+body{background:#ffffff;display:grid;place-items:center;height:100vh;margin:0;overflow:hidden;font-family:'Open Sans',system-ui,sans-serif;color:#222;}
+.wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;}
+svg{width:min(96vw,170vh);height:auto;display:block;overflow:visible;}
+button{position:fixed;bottom:14px;right:18px;background:#fff;color:#427E93;border:1px solid #427E93;padding:6px 18px;border-radius:4px;cursor:pointer;font-size:13px;letter-spacing:1px;font-family:inherit;}
+button:hover{background:#427E93;color:#fff;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<svg id="stage" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 680" font-family="Open Sans, system-ui, sans-serif">
+  <rect x="-400" y="-50" width="2080" height="101.5" fill="#CC0000"/>
+  <text x="20" y="35.5" font-size="34.5" fill="#ffffff">The interface in action</text>
+  <g id="engine"></g>
+  <g id="contract"></g>
+  <g id="plants"></g>
+  <text id="caption" x="40" y="640" font-size="18" fill="#222"></text>
+  <text id="closer" x="40" y="668" font-size="18.5" font-weight="600" fill="#B40000" opacity="0"></text>
+</svg>
+</div>
+<button onclick="replay()">Replay</button>
+<script>
+"use strict";
+const NS = "http://www.w3.org/2000/svg";
+const INK = "#222", MUTED = "#737373", LINE = "#d9dde2", RED = "#B40000", GREEN = "#008473", BLUE = "#427E93", OLIVE = "#6F7D1C", FLAME = "#D14905", GHOST = "#b8bec6";
+function mk(tag, a, parent) { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, String(a[k])); (parent || document.getElementById("stage")).appendChild(e); return e; }
+function hexA(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; }
+const clamp01 = v => Math.max(0, Math.min(1, v));
+const ease = v => { v = clamp01(v); return v < 0.5 ? 2 * v * v : 1 - Math.pow(-2 * v + 2, 2) / 2; };
+const lerp = (a, b, f) => a + (b - a) * f;
+function kf(table, t) { if (t <= table[0][0]) return table[0][1]; for (let i = 1; i < table.length; i++) if (t <= table[i][0]) { const [t0, v0] = table[i - 1], [t1, v1] = table[i]; return lerp(v0, v1, (t - t0) / (t1 - t0)); } return table[table.length - 1][1]; }
+// ---------------------------------------------------------------- the contract: six verbs
+const VERBS = [
+  { id: "create", label: "create session", sub: "mode: fresh" },
+  { id: "advance", label: "advance(dt)", sub: "returns five generic arrays" },
+  { id: "intervene", label: "intervene(actions)", sub: "the crew's actions, as index and value" },
+  { id: "checkpoint", label: "checkpoint → token", sub: "the plant keeps the state" },
+  { id: "restore", label: "restore(token)", sub: "the plant goes back to it" },
+  { id: "delete", label: "delete session", sub: "end of the sequence" },
+];
+const VY = i => 176 + i * 64;
+// ---------------------------------------------------------------- the script: one sequence, one branch point, one alternative
+// each call: when it starts, how long, which verb, what the request and the response say, and what changes
+const CALLS = [
+  { t: 2.5, d: 2.6, v: 0, req: "POST /api/v1/sessions {mode: fresh}", res: "201 {session: s1}: parameters mapped onto the five arrays" },
+  { t: 5.5, d: 1.6, v: 1, req: "advance {dt: 0.5}", res: "200: volumes, junctions, control variables, trips" },
+  { t: 7.1, d: 1.6, v: 1, req: "advance {dt: 0.5}", res: "200: five arrays" },
+  { t: 8.7, d: 1.6, v: 1, req: "advance {dt: 0.5}", res: "200: five arrays" },
+  { t: 10.3, d: 1.6, v: 1, req: "advance {dt: 0.5}", res: "200: five arrays" },
+  { t: 12.6, d: 2.4, v: 2, req: "intervene {index: 5, value: 1}: start decay heat removal", res: "200 {accepted: true}" },
+  { t: 15.6, d: 2.0, v: 1, req: "advance {dt: 0.5}", res: "200: five arrays; variable trip 2 FIRED, outlet temperature high", trip: true },
+  { t: 18.6, d: 2.8, v: 3, req: "checkpoint", res: "200 {checkpoint_id: c1}: the state stays in the plant, the engine keeps the id" },
+  { t: 22.4, d: 2.4, v: 4, req: "restore {token}", res: "200 {t: 2.5, restored: true}" },
+  { t: 25.0, d: 1.6, v: 1, req: "advance {dt: 0.5}: a different action this time", res: "200: five arrays, no trip" },
+  { t: 26.6, d: 1.6, v: 1, req: "advance {dt: 0.5}", res: "200: five arrays, no trip" },
+  { t: 29.0, d: 2.2, v: 5, req: "DELETE /api/v1/sessions/s1", res: "200 {deleted: true}" },
+];
+const LAST = CALLS[CALLS.length - 1]; const RUN_END = LAST.t + LAST.d, SWAP0 = RUN_END + 0.4, CLOSE0 = SWAP0 + 3.4, T_END = CLOSE0 + 3.0;
+const T_TRIP = 15.6 + 2.0 * 0.65, T_TOKEN = 18.6 + 2.8 * 0.65, T_RESTORE = 22.4 + 2.4 * 0.65, T_DELETE = 29.0 + 2.2 * 0.65, T_SESSION = 2.5 + 2.6 * 0.65;
+// simulated time on each branch: branch A runs to the trip; after the restore, branch B runs on from the same point
+const SIM_A = [[5.5, 0], [7.1, 0.5], [8.7, 1.0], [10.3, 1.5], [11.9, 2.0], [T_TRIP, 2.5]];
+const SIM_B = [[T_RESTORE, 2.5], [26.6, 3.0], [28.2, 3.5]];
+// The signal the story follows is the core outlet temperature above nominal, in kelvin: branch A
+// rises to the trip; after the restore, branch B takes the other action and falls. The values are
+// relative on purpose: the simulator's name rotates, and no absolute temperature fits every design.
+const P_A = [[0, 0], [0.5, 6], [1.0, 14], [1.5, 22.5], [2.0, 27.5], [2.5, 42.5]];
+const P_B = [[2.5, 42.5], [3.0, 22.5], [3.5, 10]];
+const P_TRIP = 35, P_MIN = -25, P_MAX = 60;
+// RELAP5's counterparts for advanced reactors rotate in the card that runs the story (Alp,
+// 2026-11-15: "the idea is to use Advanced reactor simulator, perhaps we should rotate the advance
+// reactor simulators counterparts of relap"). They are examples of what can sit behind the
+// contract; none of them is coupled today. Each stays SIM_DWELL seconds; 4 s makes the frozen last
+// frame show the last entry. To change the list, edit SIMS.
+const SIMS = [
+  ["SAM", "Argonne: sodium, salt, gas and heat-pipe reactors"],
+  ["SAS4A/SASSYS-1", "Argonne: liquid-metal fast reactors"],
+  ["RELAP5-3D", "Idaho: gas, liquid-metal and salt coolants"],
+  ["MELCOR", "Sandia: severe accidents, with non-LWR models"],
+  ["your own code", "anything that can save and restore its state"],
+];
+const SIM_DWELL = 4.0;
+function signalAt(t) { if (t >= T_RESTORE) return kf(P_B, kf(SIM_B, t)); return kf(P_A, kf(SIM_A, t)); }
+const CAPS = [
+  [0, "The engine speaks six verbs to a plant model and nothing else: it holds tokens and reads arrays, never the plant's own state."],
+  [2.5, "Create a session: the plant comes up and maps its parameters onto the engine's generic arrays: volumes, junctions, control variables, trips."],
+  [5.5, "Advance: every half second the engine asks for the next step and reads the full state back as five generic arrays."],
+  [12.6, "Intervene: the crew's actions travel the other way as index and value pairs; the crew model does not care what code answers."],
+  [15.6, "Trips fire inside the response; the engine turns them into pivotal events. This is where the tree branches."],
+  [18.6, "Checkpoint: the plant keeps its own state and hands back a token; the engine stores the token and never looks inside it."],
+  [22.4, "Restore: the token goes back, the plant is where it was, and the other branch runs from there: branching, over one interface."],
+  [29.0, "Delete: the session ends. Six verbs are all the engine needs to grow a whole tree on this simulator, with no engine code changed."],
+  [31.6, "Two services speak the same six verbs today: a PWR and a space reactor. The engine never parses a domain field."],
+];
+const CLOSER = "Coupling ADS-IDAC to an advanced reactor simulator is implementing six verbs, not merging two code bases.";
+// ---------------------------------------------------------------- the engine, left
+const gE = document.getElementById("engine"), EX = 40, EW = 340;
+mk("text", { x: EX, y: 100, "font-size": 17, "font-weight": 600, fill: INK }, gE).textContent = "the ADS engine";
+mk("text", { x: EX, y: 119, "font-size": 12.5, fill: MUTED }, gE).textContent = "tree, crew, reliability, dispatch: everything above the interface";
+mk("rect", { x: EX, y: 140, width: EW, height: 450, rx: 8, fill: "#fbfbfc", stroke: LINE }, gE);
+// the trajectory: the outlet temperature against simulated time, the branch drawn as it is computed
+const PX0 = EX + 78, PX1 = EX + EW - 20, PY0 = 190, PY1 = 330;
+const XT = s => PX0 + s / 3.5 * (PX1 - PX0), YP = p => PY1 - (p - P_MIN) / (P_MAX - P_MIN) * (PY1 - PY0);
+mk("text", { x: EX + 16, y: 168, "font-size": 11, "font-weight": 700, fill: MUTED, "letter-spacing": 1.4 }, gE).textContent = "THE TREE, AS THE ENGINE SEES IT";
+mk("line", { x1: PX0, y1: PY1, x2: PX1, y2: PY1, stroke: LINE }, gE); mk("line", { x1: PX0, y1: PY0, x2: PX0, y2: PY1, stroke: LINE }, gE);
+mk("text", { x: PX1, y: PY1 + 16, "font-size": 10.5, fill: MUTED, "text-anchor": "end" }, gE).textContent = "simulated time";
+mk("text", { x: PX0 - 6, y: PY0 + 4, "font-size": 10.5, fill: MUTED, "text-anchor": "end" }, gE).textContent = "core outlet";
+mk("text", { x: PX0 - 6, y: PY0 + 17, "font-size": 10.5, fill: MUTED, "text-anchor": "end" }, gE).textContent = "temperature";
+mk("line", { x1: PX0, y1: YP(P_TRIP), x2: PX1, y2: YP(P_TRIP), stroke: RED, "stroke-width": 1, "stroke-dasharray": "3 3", opacity: 0.6 }, gE);
+mk("text", { x: PX0 + 4, y: YP(P_TRIP) - 4, "font-size": 10, fill: RED, opacity: 0.8 }, gE).textContent = "trip: outlet temperature high";
+const trajA = mk("polyline", { points: "", fill: "none", stroke: BLUE, "stroke-width": 2.6, "stroke-linejoin": "round", "stroke-linecap": "round" }, gE);
+const trajB = mk("polyline", { points: "", fill: "none", stroke: OLIVE, "stroke-width": 2.6, "stroke-linejoin": "round", "stroke-linecap": "round" }, gE);
+const forkDot = mk("circle", { cx: XT(2.5), cy: YP(42.5), r: 5, fill: "#333", opacity: 0 }, gE);
+const forkT = mk("text", { x: XT(2.5) + 8, y: YP(42.5) + 4, "font-size": 10.5, fill: INK, opacity: 0 }, gE); forkT.textContent = "pivotal event";
+const headDot = mk("circle", { r: 4, fill: BLUE, opacity: 0 }, gE);
+// what the engine keeps: tokens
+mk("text", { x: EX + 16, y: 372, "font-size": 11, "font-weight": 700, fill: MUTED, "letter-spacing": 1.4 }, gE).textContent = "WHAT THE ENGINE KEEPS";
+mk("rect", { x: EX + 16, y: 384, width: EW - 32, height: 58, rx: 6, fill: "#fff", stroke: LINE }, gE);
+const tokenChip = mk("g", { opacity: 0 }, gE);
+mk("rect", { x: EX + 28, y: 396, width: 108, height: 34, rx: 6, fill: hexA("#555", 0.08), stroke: "#555", "stroke-width": 1.2 }, tokenChip);
+mk("text", { x: EX + 82, y: 411, "font-size": 11.5, "font-weight": 700, fill: INK, "text-anchor": "middle" }, tokenChip).textContent = "token";
+mk("text", { x: EX + 82, y: 424, "font-size": 9.5, fill: MUTED, "text-anchor": "middle" }, tokenChip).textContent = "opaque bytes";
+const tokenT = mk("text", { x: EX + 148, y: 410, "font-size": 11, fill: INK }, gE);
+const tokenT2 = mk("text", { x: EX + 148, y: 426, "font-size": 11, fill: MUTED }, gE);
+const tokenNone = mk("text", { x: EX + 28, y: 417, "font-size": 11, fill: MUTED }, gE); tokenNone.textContent = "(no token yet)";
+// what it reads and sends
+mk("text", { x: EX + 16, y: 470, "font-size": 11, "font-weight": 700, fill: MUTED, "letter-spacing": 1.4 }, gE).textContent = "WHAT IT READS";
+mk("text", { x: EX + 16, y: 488, "font-size": 11.5, fill: INK }, gE).textContent = "five generic arrays: volumes, junctions,";
+mk("text", { x: EX + 16, y: 504, "font-size": 11.5, fill: INK }, gE).textContent = "control variables, variable and logical trips";
+mk("text", { x: EX + 16, y: 534, "font-size": 11, "font-weight": 700, fill: MUTED, "letter-spacing": 1.4 }, gE).textContent = "WHAT IT SENDS";
+mk("text", { x: EX + 16, y: 552, "font-size": 11.5, fill: INK }, gE).textContent = "dt, and the crew's actions as index and value";
+const callT = mk("text", { x: EX + 16, y: 578, "font-size": 12, "font-weight": 600, fill: RED }, gE);
+// ---------------------------------------------------------------- the contract, middle
+const gC = document.getElementById("contract"), CX0 = 410, CX1 = 870, PILL_X = 545, PILL_W = 190;
+mk("text", { x: CX0, y: 100, "font-size": 17, "font-weight": 600, fill: INK }, gC).textContent = "the contract";
+mk("text", { x: CX0, y: 119, "font-size": 12.5, fill: MUTED }, gC).textContent = "JSON over HTTP, or in process: the same six verbs either way";
+const pills = VERBS.map((v, i) => {
+  const y = VY(i);
+  mk("line", { x1: EX + EW + 2, y1: y, x2: PILL_X, y2: y, stroke: LINE, "stroke-width": 1.2 }, gC);
+  const rect = mk("rect", { x: PILL_X, y: y - 17, width: PILL_W, height: 34, rx: 17, fill: "#fff", stroke: LINE, "stroke-width": 1.4 }, gC);
+  const lab = mk("text", { x: PILL_X + PILL_W / 2, y: y + 5, "font-size": 13, "font-weight": 600, fill: INK, "text-anchor": "middle" }, gC); lab.textContent = v.label;
+  const sub = mk("text", { x: PILL_X + PILL_W / 2, y: y + 30, "font-size": 10, fill: MUTED, "text-anchor": "middle", opacity: 0.85 }, gC); sub.textContent = v.sub;
+  return { rect, lab, sub, y };
+});
+const CARD_Y = [262];                                          // the live plant's center
+const SLOT_Y = [448, 566];                                     // the two plants waiting to be coupled
+const linksR = CARD_Y.map(cy => mk("line", { x1: PILL_X + PILL_W, y1: 0, x2: 900, y2: cy, stroke: LINE, "stroke-width": 1.2, opacity: 0 }, gC));
+const linksS = SLOT_Y.map(cy => mk("line", { x1: PILL_X + PILL_W, y1: 0, x2: 900, y2: cy, stroke: GREEN, "stroke-width": 1.2, "stroke-dasharray": "4 3", opacity: 0 }, gC));
+const pulseL = mk("circle", { r: 5, fill: RED, opacity: 0 }, gC);
+const pulseR = CARD_Y.map(() => mk("circle", { r: 5, fill: RED, opacity: 0 }, gC));
+const pulseS = SLOT_Y.map(() => mk("circle", { r: 5, fill: GREEN, opacity: 0 }, gC));
+const wireT = mk("text", { x: (EX + EW + PILL_X) / 2, y: 0, "font-size": 10.5, fill: INK, "text-anchor": "middle", opacity: 0 }, gC);
+const payT = mk("text", { x: CX0, y: 600, "font-size": 11.5, fill: INK, opacity: 0 }, gC);
+const payL = mk("text", { x: CX0, y: 582, "font-size": 10.5, "font-weight": 700, fill: MUTED, "letter-spacing": 1.4 }, gC); payL.textContent = "ON THE WIRE";
+// ---------------------------------------------------------------- the plants, right
+const gP = document.getElementById("plants"), PXc = 900, PW = 340;
+mk("text", { x: PXc, y: 100, "font-size": 17, "font-weight": 600, fill: INK }, gP).textContent = "anything that speaks it";
+const plantSub = mk("text", { x: PXc, y: 119, "font-size": 12.5, fill: MUTED }, gP); plantSub.textContent = "one simulator runs the story; two services wait below";
+function plant(cy, color, name, sub, tokenLine, tokenSub) {
+  const y0 = cy - 112, h = 224;
+  mk("rect", { x: PXc, y: y0, width: PW, height: h, rx: 8, fill: "#fbfbfc", stroke: LINE }, gP);
+  const bar = mk("rect", { x: PXc, y: y0, width: 5, height: h, rx: 2.5, fill: color }, gP);
+  mk("text", { x: PXc + 20, y: y0 + 28, "font-size": 14, "font-weight": 700, fill: color }, gP).textContent = name;
+  // the example line: a fixed lead, then the rotating name, and under it what that code is for
+  const subT = mk("text", { x: PXc + 20, y: y0 + 46, "font-size": 11, fill: MUTED }, gP);
+  mk("tspan", {}, subT).textContent = sub;
+  const simName = mk("tspan", { "font-size": 11.5, "font-weight": 700, fill: INK }, subT);
+  const simDesc = mk("text", { x: PXc + 20, y: y0 + 61, "font-size": 10.5, fill: MUTED }, gP);
+  const badge = mk("g", { opacity: 0 }, gP);
+  mk("rect", { x: PXc + PW - 86, y: y0 + 12, width: 70, height: 20, rx: 10, fill: "#fff", stroke: color, "stroke-width": 1.2 }, badge);
+  mk("text", { x: PXc + PW - 51, y: y0 + 26, "font-size": 10.5, "font-weight": 700, fill: color, "text-anchor": "middle" }, badge).textContent = "session s1";
+  mk("text", { x: PXc + 20, y: y0 + 86, "font-size": 11, fill: MUTED }, gP).textContent = "core outlet temperature, above nominal";
+  mk("rect", { x: PXc + 20, y: y0 + 93, width: 200, height: 10, rx: 3, fill: "#eef0f2" }, gP);
+  const fill = mk("rect", { x: PXc + 20, y: y0 + 93, width: 0, height: 10, rx: 3, fill: color, opacity: 0.85 }, gP);
+  mk("line", { x1: PXc + 20 + 200 * (P_TRIP - P_MIN) / (P_MAX - P_MIN), y1: y0 + 90, x2: PXc + 20 + 200 * (P_TRIP - P_MIN) / (P_MAX - P_MIN), y2: y0 + 106, stroke: RED, "stroke-width": 1.2 }, gP);
+  const val = mk("text", { x: PXc + 232, y: y0 + 103, "font-size": 12, "font-weight": 700, fill: INK }, gP);
+  const led = mk("circle", { cx: PXc + 28, cy: y0 + 127, r: 6, fill: "none", stroke: LINE, "stroke-width": 1.5 }, gP);
+  const ledT = mk("text", { x: PXc + 42, y: y0 + 131, "font-size": 11, fill: MUTED }, gP); ledT.textContent = "trip: outlet temperature high";
+  mk("text", { x: PXc + 20, y: y0 + 158, "font-size": 10.5, "font-weight": 700, fill: MUTED, "letter-spacing": 1.4 }, gP).textContent = "WHAT IT KEEPS AT A CHECKPOINT";
+  const tok = mk("g", { opacity: 0 }, gP);
+  mk("rect", { x: PXc + 20, y: y0 + 168, width: PW - 40, height: 40, rx: 6, fill: hexA(color, 0.07), stroke: color, "stroke-width": 1.2 }, tok);
+  mk("text", { x: PXc + 32, y: y0 + 185, "font-size": 12, "font-weight": 700, fill: INK }, tok).textContent = tokenLine;
+  mk("text", { x: PXc + 32, y: y0 + 200, "font-size": 10.5, fill: MUTED }, tok).textContent = tokenSub;
+  // before the first checkpoint the slot is drawn empty and says so; a heading over a blank
+  // area read as a missing element (Alp's screenshot, 2026-11-15)
+  const none = mk("g", {}, gP);
+  mk("rect", { x: PXc + 20, y: y0 + 168, width: PW - 40, height: 40, rx: 6, fill: "none", stroke: LINE, "stroke-width": 1.2, "stroke-dasharray": "5 4" }, none);
+  mk("text", { x: PXc + 32, y: y0 + 192, "font-size": 11, fill: MUTED }, none).textContent = "(nothing yet: no checkpoint taken)";
+  const busy = mk("rect", { x: PXc, y: y0, width: PW, height: h, rx: 8, fill: "none", stroke: color, "stroke-width": 2.5, opacity: 0 }, gP);
+  return { fill, val, led, ledT, badge, tok, none, busy, color, simName, simDesc };
+}
+const plants = [
+  plant(CARD_Y[0], BLUE, "an advanced reactor simulator", "in RELAP5's place, for example: ", "checkpoint id c1, about 100 bytes", "the state stays in the service; the id comes back"),
+];
+// The two cards below are the services that speak the contract today (the paper's demonstration):
+// they wait, dimmed, while the simulator above runs the story, and light up at the end. A card
+// drawn with `planned` set gets a dashed outline and a "planned" badge; neither uses it here.
+function slot(cy, color, name, sub, line1, line2, planned) {
+  const y0 = cy - 50, h = 100;
+  const g = mk("g", { opacity: 0.38 }, gP);
+  mk("rect", Object.assign({ x: PXc, y: y0, width: PW, height: h, rx: 8, fill: "#fbfbfc", stroke: color, "stroke-width": 1.2 }, planned ? { "stroke-dasharray": "5 4" } : {}), g);
+  mk("rect", { x: PXc, y: y0, width: 5, height: h, rx: 2.5, fill: color }, g);
+  mk("text", { x: PXc + 20, y: y0 + 26, "font-size": 14.5, "font-weight": 700, fill: color }, g).textContent = name;
+  mk("text", { x: PXc + 20, y: y0 + 44, "font-size": 11, fill: MUTED }, g).textContent = sub;
+  mk("text", { x: PXc + 20, y: y0 + 68, "font-size": 11.5, fill: INK }, g).textContent = line1;
+  mk("text", { x: PXc + 20, y: y0 + 85, "font-size": 11.5, fill: INK }, g).textContent = line2;
+  const badge = mk("g", { opacity: 0 }, g);
+  mk("rect", { x: PXc + PW - 108, y: y0 + 12, width: 92, height: 20, rx: 10, fill: "#fff", stroke: GREEN, "stroke-width": 1.2 }, badge);
+  mk("text", { x: PXc + PW - 62, y: y0 + 26, "font-size": 10.5, "font-weight": 700, fill: GREEN, "text-anchor": "middle" }, badge).textContent = planned ? "planned" : "six verbs: yes";
+  return { g, badge };
+}
+const slots = [
+  slot(SLOT_Y[0], OLIVE, "a PWR service", "a lumped three-loop model in a few hundred lines", "the reference implementation for solver authors:", "15 control variables, a loss of offsite power", false),
+  slot(SLOT_Y[1], FLAME, "a space reactor service", "electric propulsion; 32 control variables, 40 trips", "its arrays carry its own quantities:", "thrust, bus voltage, core temperature", false),
+];
+// ---------------------------------------------------------------- render: a pure function of t
+function activeCall(t) { for (const c of CALLS) if (t >= c.t && t < c.t + c.d) return c; return null; }
+function render(t) {
+  const c = activeCall(t); const k = c ? (t - c.t) / c.d : 0;
+  // verbs: the active one lit
+  pills.forEach((p, i) => { const on = c && c.v === i; p.rect.setAttribute("fill", on ? hexA(RED, 0.08) : "#fff"); p.rect.setAttribute("stroke", on ? RED : LINE); p.rect.setAttribute("stroke-width", on ? 2 : 1.4); p.lab.setAttribute("fill", on ? RED : INK); });
+  // pulses: request out (0 to 0.3 to the pill, 0.3 to 0.5 to the plants), work (0.5 to 0.65), response back (0.65 to 1)
+  const showLinks = !!c; linksR.forEach((l, j) => { l.setAttribute("y1", c ? VY(c.v) : 0); l.setAttribute("opacity", showLinks ? 1 : 0); });
+  const y = c ? VY(c.v) : 0;
+  let lx = null, rx = null, rf = 0;
+  if (c) {
+    if (k < 0.3) lx = lerp(EX + EW + 2, PILL_X, ease(k / 0.3));
+    else if (k < 0.5) rf = ease((k - 0.3) / 0.2);
+    else if (k < 0.65) rf = 1;
+    else if (k < 0.85) rf = 1 - ease((k - 0.65) / 0.2);
+    else lx = lerp(PILL_X, EX + EW + 2, ease((k - 0.85) / 0.15));
+  }
+  pulseL.setAttribute("opacity", lx != null ? 1 : 0); if (lx != null) { pulseL.setAttribute("cx", lx); pulseL.setAttribute("cy", y); }
+  pulseR.forEach((p, j) => { const on = c && k >= 0.3 && k < 0.85; p.setAttribute("opacity", on ? 1 : 0); if (on) { p.setAttribute("cx", lerp(PILL_X + PILL_W, 900, rf)); p.setAttribute("cy", lerp(y, CARD_Y[j], rf)); } });
+  plants.forEach(p => p.busy.setAttribute("opacity", c && k >= 0.5 && k < 0.65 ? 1 : 0));
+  // the wire text: request, then response
+  if (c) { payT.textContent = (k < 0.55 ? "→ " + c.req : "← " + c.res); payT.setAttribute("fill", k < 0.55 ? INK : (c.trip && k >= 0.55 ? RED : GREEN)); payT.setAttribute("opacity", 1); }
+  else payT.setAttribute("opacity", 0);
+  callT.textContent = c ? ("calling: " + VERBS[c.v].label) : (t >= RUN_END ? "sequence complete" : "");
+  // the plants: session badges, gauges, trip lamps, tokens
+  const p = signalAt(t), f = clamp01((p - P_MIN) / (P_MAX - P_MIN));
+  const sessionOn = t >= T_SESSION && t < T_DELETE, tripOn = t >= T_TRIP && t < T_RESTORE, tokenOn = t >= T_TOKEN;
+  const si = Math.floor(t / SIM_DWELL) % SIMS.length, sp = t % SIM_DWELL, so = clamp01(Math.min(sp, SIM_DWELL - sp) / 0.35);
+  plants.forEach(pl => { pl.simName.textContent = SIMS[si][0]; pl.simName.setAttribute("fill-opacity", so); pl.simDesc.textContent = SIMS[si][1]; pl.simDesc.setAttribute("opacity", so); });
+  plants.forEach(pl => { pl.badge.setAttribute("opacity", sessionOn ? 1 : 0); pl.fill.setAttribute("width", sessionOn ? 200 * f : 0); pl.val.textContent = sessionOn ? "+" + Math.round(p) + " K" : "";
+    pl.led.setAttribute("fill", tripOn ? RED : "none"); pl.led.setAttribute("stroke", tripOn ? RED : LINE); pl.ledT.setAttribute("fill", tripOn ? RED : MUTED); pl.ledT.setAttribute("font-weight", tripOn ? 700 : 400);
+    pl.tok.setAttribute("opacity", tokenOn ? 1 : 0); pl.none.setAttribute("opacity", tokenOn ? 0 : 1); });
+  tokenChip.setAttribute("opacity", tokenOn ? 1 : 0); tokenNone.setAttribute("opacity", tokenOn ? 0 : 1);
+  tokenT.textContent = tokenOn ? "one token per branch point:" : ""; tokenT2.textContent = tokenOn ? "id or image, never opened" : "";
+  // the trajectory on the left
+  const sA = kf(SIM_A, t), sB = t >= T_RESTORE ? kf(SIM_B, t) : 2.5;
+  const ptsA = []; for (let s = 0; s <= sA + 1e-9; s += 0.05) ptsA.push(`${XT(s).toFixed(1)},${YP(kf(P_A, s)).toFixed(1)}`);
+  trajA.setAttribute("points", t >= 5.5 ? ptsA.join(" ") : "");
+  const ptsB = []; if (t >= T_RESTORE) for (let s = 2.5; s <= sB + 1e-9; s += 0.05) ptsB.push(`${XT(s).toFixed(1)},${YP(kf(P_B, s)).toFixed(1)}`);
+  trajB.setAttribute("points", ptsB.join(" "));
+  forkDot.setAttribute("opacity", t >= T_TRIP ? 1 : 0); forkT.setAttribute("opacity", t >= T_TRIP ? 1 : 0);
+  const hs = t >= T_RESTORE ? sB : sA; headDot.setAttribute("cx", XT(hs)); headDot.setAttribute("cy", YP(t >= T_RESTORE ? kf(P_B, hs) : kf(P_A, hs))); headDot.setAttribute("fill", t >= T_RESTORE ? OLIVE : BLUE); headDot.setAttribute("opacity", t >= 5.5 && t < RUN_END ? 1 : 0);
+  // the end: the two services that speak the same six verbs today light up
+  const finished = t >= SWAP0, ks = clamp01((t - SWAP0) / 1.2);
+  slots.forEach((s, j) => { s.g.setAttribute("opacity", 0.38 + 0.62 * ease(ks)); s.badge.setAttribute("opacity", t >= SWAP0 + 1.2 ? 1 : 0); });
+  linksS.forEach((l, j) => { l.setAttribute("y1", 336); l.setAttribute("opacity", finished ? 0.9 : 0); });
+  pulseS.forEach((p, j) => { const on = finished && ks < 1; p.setAttribute("opacity", on ? 1 : 0); if (on) { p.setAttribute("cx", lerp(PILL_X + PILL_W, 900, ease(ks))); p.setAttribute("cy", lerp(336, SLOT_Y[j], ease(ks))); } });
+  plantSub.textContent = finished ? "the same six verbs, whatever the physics" : "one simulator runs the story; two services wait below";
+  plantSub.setAttribute("fill", finished ? GREEN : MUTED); plantSub.setAttribute("font-weight", finished ? 600 : 400);
+  let cap = CAPS[0][1]; for (const [tt, s] of CAPS) if (t >= tt) cap = s;
+  document.getElementById("caption").textContent = cap;
+  const closer = document.getElementById("closer"); closer.textContent = CLOSER; closer.setAttribute("opacity", t >= CLOSE0 ? ease((t - CLOSE0) / 0.6) : 0);
+}
+// ---------------------------------------------------------------- driver: play once, freeze, Replay
+let t = 0, playing = true, last = null;
+function frame(ts) { if (last == null) last = ts; const dt = Math.min(0.05, (ts - last) / 1000); last = ts;
+  if (playing) { t += dt; if (t >= T_END) { t = T_END; playing = false; } }
+  render(t); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+function replay() { t = 0; playing = true; last = null; }
+window.__anim = { T: T_END, seek(x) { playing = false; t = Math.max(0, Math.min(T_END, x)); render(t); } };
+const qs = new URLSearchParams(location.search); if (qs.get("t")) { t = parseFloat(qs.get("t")) || 0; }
+</script>
+
+<script>
+// deck bridge: inside the reveal deck, let the presenter move the deck from within
+// this animation. PageDown/PageUp (clickers), N/P and Esc go to reveal's postMessage
+// API; this page has no arrow-key controls of its own, so arrows forward immediately.
+// Outside the deck this is inert.
+(() => {
+  if (window.parent === window) return;
+  const send = m => window.parent.postMessage(JSON.stringify({ method: m, args: [] }), "*");
+  window.__deck = { next: () => send("next"), prev: () => send("prev") };
+  addEventListener("keydown", e => {
+    if (e.code === "PageDown" || e.code === "ArrowRight" || (e.key === "n" && !e.metaKey && !e.ctrlKey)) { e.preventDefault(); e.stopImmediatePropagation(); send("next"); }
+    else if (e.code === "PageUp" || e.code === "ArrowLeft" || (e.key === "p" && !e.metaKey && !e.ctrlKey)) { e.preventDefault(); e.stopImmediatePropagation(); send("prev"); }
+    else if (e.code === "Escape") { send("toggleOverview"); }
+  }, true);
+})();
+</script>
+
+<script>
+// deck fit: inside the reveal deck, lay this page out as a fixed 1280x720 slide and
+// scale it like reveal scales its slides.
+(() => {
+  if (window.parent === window) return;
+  const D = { w: 1280, h: 720 };
+  const w = document.querySelector(".wrap");
+  if (!w) return;
+  document.documentElement.style.overflow = "hidden";
+  document.body.style.overflow = "hidden";
+  Object.assign(w.style, { width: D.w + "px", maxWidth: "none", height: D.h + "px",
+    margin: "0", position: "absolute", left: "50%", top: "50%",
+    padding: "10px 0 0", boxSizing: "border-box", justifyContent: "flex-start" });
+  const stage = document.getElementById("stage");
+  if (stage) { stage.style.width = "1280px"; stage.style.height = "680px"; stage.style.margin = "0 auto"; }
+  // On a stage taller than 16:9 (the deck's fit-to-screen, on a laptop) everything under the
+  // title band moves down by half of the extra height, as the deck's own slides do. The band,
+  // the svg's first two children, stays where it is.
+  function lower(dy) { if (!stage) return; const on = dy > 0.5; stage.style.transform = on ? `translateY(${dy}px)` : "";
+    for (const el of Array.from(stage.children).slice(0, 2)) { if (on) el.setAttribute("transform", `translate(0,${-dy})`); else el.removeAttribute("transform"); } }
+  // place the box exactly where the deck places its slide box (read from the parent page;
+  // same origin), so bands and text line up at any window shape; fall back to centering
+  function fit() { let r = null; try { const el = window.parent.document.querySelector(".reveal .slides"); if (el) r = el.getBoundingClientRect(); } catch (e) {}
+    if (r && r.width > 100) { const k = r.width / D.w; Object.assign(w.style, { left: "0", top: "0", transformOrigin: "0 0", transform: `translate(${r.left}px,${r.top}px) scale(${k})` }); lower(Math.max(0, r.height / k - D.h) / 2); return; }
+    const s = Math.min(innerWidth / D.w, innerHeight / D.h) * 0.96;
+    Object.assign(w.style, { left: "50%", top: "50%", transformOrigin: "50% 50%", transform: `translate(-50%,-50%) scale(${s})` }); }
+  addEventListener("resize", fit); fit();
+})();
+</script>
+
+<script>
+// band balance (2026-11-17): inside the deck the tab strip covers the top of this page's red
+// band, by an amount that depends on the window. The deck publishes the strip's lower edge as
+// --band-top (stage px below the slide's top) and places its own titles from it; the same
+// shift is applied here to the band and its title. 5.46 is the distance both were drawn for.
+(() => {
+  if (window.parent === window) return;
+  const band = document.querySelector("svg#stage > rect"), title = document.querySelector("svg#stage > text");
+  if (!band || !title) return;
+  const H0 = parseFloat(band.getAttribute("height")), Y0 = parseFloat(title.getAttribute("y"));
+  function apply() {
+    let d = 0;
+    try {
+      const v = parseFloat(window.parent.document.documentElement.style.getPropertyValue("--band-top"));
+      if (!isNaN(v)) d = v - 5.46;
+    } catch (e) {}
+    band.setAttribute("height", (H0 + d).toFixed(2));
+    title.setAttribute("y", (Y0 + d).toFixed(2));
+  }
+  addEventListener("resize", apply);
+  addEventListener("load", apply);
+  apply();
+})();
+</script>
+</body>
+</html>

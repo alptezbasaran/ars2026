@@ -1,0 +1,241 @@
+## From ADS-IDAC to OpenPRA {#toward-openpra data-section="6"}
+
+```{=html}
+<div class="arc">
+  <div class="node"><img src="figs/logo-tree.png" alt="A dynamic event tree, the ADS-IDAC mark">
+    <div class="cap"><b>ADS-IDAC</b>the engine, release 5.0</div></div>
+  <div class="go">→</div>
+  <div class="via"><b>a solver contract</b>: physics as a service<br><b>a parallel engine</b>: the tree at scale<br><b>a web workflow</b>: a browser suffices</div>
+  <div class="go">→</div>
+  <div class="node"><img class="wide" src="figs/logo-openpra.png" alt="OpenPRA">
+    <div class="cap"><b>OpenPRA</b>as its dynamic PRA engine: in progress</div></div>
+</div>
+<div class="cols3">
+  <div class="col c3">
+    <div class="k">Thread 1</div>
+    <div class="h">A new tree core</div>
+    <ul>
+      <li>being brought to byte-identical agreement with the C++ engine on the reference benchmark</li>
+      <li>MPI execution stays with the C++ engine today</li>
+    </ul>
+  </div>
+  <div class="col c6">
+    <div class="k">Thread 2</div>
+    <div class="h">Integration into OpenPRA</div>
+    <ul>
+      <li>the platform becomes the dynamic PRA engine of the open-source ecosystem</li>
+      <li>the modern engine and the web workflow have been developed for it</li>
+    </ul>
+  </div>
+  <div class="col c5">
+    <div class="k">Thread 3</div>
+    <div class="h">Reading output at scale</div>
+    <ul>
+      <li>sequence clustering and interactive pivotal-event visualization, under active development</li>
+      <li>the analysis half of the combinatorial problem; parallel traversal solves the compute half</li>
+    </ul>
+  </div>
+</div>
+```
+
+::: {.slideref}
+ADS-IDAC 5.0.0 (2026), doi:10.5281/zenodo.21974488. OpenPRA: Earthperson, Aras, Farag and Diaconeasa, *Proc. ASME IMECE2023* (2023).
+:::
+
+::: {.notes}
+Where does it go next? Three threads.
+
+First, a new implementation of the tree core, being brought to byte-identical
+agreement with the C++ engine on the reference benchmark.
+
+Second, the destination in the title: integration into the open-source OpenPRA
+ecosystem, as its dynamic PRA engine. The modern engine and the web workflow
+have been developed for it, and the integration is in progress.
+
+Third, tools to read the output at scale: sequence clustering and interactive
+visualization, under active development. Parallel traversal solves the compute
+half of the combinatorial problem; reading tens of thousands of sequences is
+the other half.
+:::
+
+## Conclusions {#conclusions data-section="6"}
+
+::: {style="font-size:0.84em;"}
+- **Dynamic PRA was held back by its tooling, not its theory**: engines
+  welded to one physics code and bounded by serial traversal.
+- **Physics is now a service.** Six endpoints couple a new code, a surrogate
+  or a digital twin; one contract and one branching logic serve a PWR and a
+  space fission reactor.
+- **The tree is traversed in parallel.** A metadata-only scheduler and
+  peer-to-peer state exchange, with fault tolerance and live monitoring
+  included; measured speedups compound to two orders of magnitude over the
+  engine as originally fielded.
+- **For advanced reactors** this makes passive-system timing, humans and
+  automation in the loop, and sequence sampling at the scale of uncertainty
+  quantification tractable on infrastructure practitioners already have.
+:::
+
+::: {style="font-size:0.84em; margin-top:0.6em;"}
+[Next, and underway: integration into the open-source OpenPRA ecosystem,
+from a laboratory capability to community infrastructure.]{style="color:#B40000;"}
+:::
+
+::: {.notes}
+To conclude. Dynamic PRA has been held back by its tooling, not by its theory:
+engines welded to one physics code and limited to one sequence at a time. This
+work removes both barriers with two moves that rest on one primitive.
+
+Physics is now a service behind an interface of six endpoints, so the models
+an advanced reactor needs, including surrogates and digital twins, connect
+without merging code. One interface serves a PWR and a space fission reactor.
+
+And the tree is traversed in parallel. ADS-IDAC now runs anywhere and much
+faster, and trees of tens of thousands of sequences are generated in under an
+hour.
+
+For advanced reactor safety, that turns dynamic PRA from a research method
+into a usable capability. The next step is OpenPRA.
+:::
+
+## {#thank-you .thank-you .no-band data-section="6" visibility="uncounted"}
+
+[Thank you.]{.ty-big style="display:block;"}
+
+[Questions?]{.ty-big style="display:block; margin-top:0.1em;"}
+
+::: {.ty-contact}
+**Alp Tezbasaran**<br>
+alptezbasaran@ncsu.edu<br>
+Probabilistic Risk Assessment Group, Department of Nuclear Engineering<br>
+North Carolina State University
+:::
+
+::: {.ty-ack}
+Computing resources: the NC State University High Performance Computing
+Shared Core Research Facility (RRID:SCR_022168), and NC State University
+Libraries' Data Science Services.
+:::
+
+<div class="ty-qrcap"><b>ADS-IDAC 5.0.0</b>doi.org/10.5281/zenodo.21974488</div>
+
+<div class="ty-qr"><img src="figs/qr_engine.svg" alt="QR code: ADS-IDAC on Zenodo, doi.org/10.5281/zenodo.21974488"></div>
+
+<div class="title-footer">
+<img src="figs/logo-ncstate.png" alt="NC State University">
+</div>
+
+::: {.notes}
+Thank you. We are happy to take questions.
+
+---
+
+### If asked: prepared answers
+
+If a question is not on this list, do not guess: Alp is on the Teams call and
+can take it.
+
+- **Is the code available?** The closing slide carries the DOI of the ADS-IDAC
+  5.0.0 release on Zenodo. For access and licensing, Alp is the person to
+  write to. [thank-you]
+- **How is this different from RAVEN, ADAPT, MCDET or EMRALD?** Simulator
+  neutrality is not new; ADAPT has it by design. What is different is the form
+  of the coupling: a documented service contract with in-memory state exchange
+  and typed branching semantics, together with a parallel traversal engine and
+  crew cognition in one platform. [Backup: where this sits]
+- **Why HTTP and not a linked library?** Isolation. A service shares no
+  compiler and no process with the engine, so coupling a new code is
+  implementing endpoints, not merging code. The in-process interface is still
+  there, and RELAP5 uses it. [solver-interface; Backup: the contract in full]
+- **What does the HTTP hop cost?** The paper does not report it. The validated
+  RELAP5 path stays in process; an external code pays one request per advance.
+  [rest-contract]
+- **Have you coupled SAM, or any advanced reactor code?** Not yet. Two
+  services speak the contract today, a lumped PWR and a space reactor model,
+  and RELAP5 runs in process behind the same five calls. An advanced reactor
+  system code needs a wrapper that implements the six endpoints, and the code
+  must be able to save and restore its complete state. [rest-contract;
+  two-reactors]
+- **Does the browser workflow run the IDAC crew?** No. Its branching comes
+  from scheduled operator actions and trip firings; the cognitive branching is
+  in the C++ engine, which drives the same solvers through the same contract.
+  [browser-workflow]
+- **Is the space reactor NASA's SR-1?** It is a model built from the public
+  description of SR-1 Freedom: HALEU fuel, heat pipes, a closed Brayton
+  converter at twenty kilowatts electric, and Hall thrusters. Little of the
+  design is public, so every other value is an assumption. It is
+  representative, not a design model, and its numbers say nothing about SR-1
+  itself. [Backup: the space fission reactor]
+- **Is that spacecraft crewed?** No. Onboard fault protection responds first,
+  and ground commands arrive after the light time. What matters for dynamic
+  PRA is the responder slot: in remote and autonomous operation a software
+  policy sits where the control-room crew sits. [two-reactors; Backup: the
+  space fission reactor]
+- **The paper describes a liquid-metal loop, Stirling conversion and
+  seventeen control variables?** That was the model when the paper was
+  written. It has since been rebuilt from the public description of SR-1
+  Freedom, and the contract did not change. [two-reactors]
+- **Are the speedups inflated by the serial optimizations?** No: the slide
+  shows each factor as its own step. Parallel speedups are counted against the
+  optimized serial run on the same machine and build, and each cluster number
+  says what it is counted from. [perf-workstation; Backup: three baselines]
+- **Why is the 156 times conservative?** The 752 seconds were timed on a
+  modern workstation with a solid-state disk, and about half of that time went
+  to re-reading the same files. On slower or shared storage the original
+  engine took longer. [perf-workstation]
+- **What is the modern toolchain?** GNU Fortran at full optimization. The
+  reference Intel build ran RELAP5 without optimization, so this step alone is
+  two to two and a half times. [Backup: measured performance]
+- **Which machines?** An 8-core Linux workstation and a 14-core Apple-silicon
+  laptop. [Backup: three baselines]
+- **What exactly is the MPI factor?** 21.4 seconds on one core of the laptop
+  against 4.8 seconds on ten ranks: 4.46 times, rounded to about four on the
+  slide. [perf-workstation; Backup: laptop wall times]
+- **Why does parallelism pay more on realistic scenarios?** A wider and deeper
+  tree keeps more workers busy. On the benchmark the tree runs out of branches
+  near ten ranks; on the 35,000-sequence tree the engine keeps 94 to 98
+  percent of ideal scaling up to 768 ranks. [large-trees-efficiency; Backup: the rank ladder]
+- **The paper reports only 1.7 times across eight nodes?** That benchmark tree
+  is deliberately narrowed and runs out of width. On a tree wide enough to
+  feed every worker, the tree phase keeps 94 to 98 percent of ideal scaling up
+  to 768 ranks, counted from each node type's smallest run. [Backup: the
+  benchmark tree across cluster nodes; large-trees-efficiency; Backup: the
+  rank ladder]
+- **Are these large trees in the paper?** No. The paper reports the
+  workstation and the first multi-node measurements. The large trees are from
+  Alp's dissertation, NC State 2026, Chapter 3, run on NC State's Hazel
+  cluster. [large-trees; Backup: the benchmark tree across cluster nodes]
+- **What is the 12.5 days?** A projection: the worker time measured on the
+  cluster, added up as if one core of the optimized serial engine ran every
+  sequence. [large-trees-efficiency]
+- **Why two lines in the scaling chart?** Two kinds of nodes on the same
+  cluster: 32-core Intel nodes up to 256 ranks, and 192-core AMD nodes from
+  256 to 768. Each line is compared with its own ideal. [large-trees-efficiency;
+  Backup: the rank ladder]
+- **How do you know a resumed study is correct?** Resume is regression tested
+  across execution modes and rank counts: each tested permutation has to
+  reproduce the reference sequence counts, and the cluster resume reproduced
+  the end states of the straight run. [Backup: checkpoint and resume]
+- **Is parallel output the same as serial output?** On the validation cases,
+  yes: each rank writes in its own directory, the merge reproduces the serial
+  layout, and the tests assert that the merged results agree. [memory-fault]
+- **Is the crew model a validated HRA method?** No. IDAC is a cognitive model
+  of a crew in a closed loop with the plant. It generates behavior and
+  branches; it does not certify human error rates. [Backup: the IDAC crew
+  model]
+- **What about uncertainty quantification?** The tree resolves the aleatory
+  uncertainties into branches. Epistemic uncertainty is an outer loop that
+  repeats the tree, so its cost is the number of samples times the cost of a
+  tree, and parallel traversal divides the second factor. (Optional: the talk
+  before this one in the session, on hierarchical uncertainty propagation, is
+  the place to point.) [large-trees-efficiency]
+- **Fifty-seven minutes for the whole tube-rupture study?** For the tree. The
+  engine's total wall time was 1 h 52 min, because it spent about as long
+  merging its output as computing the tree. That limit was removed before the
+  35,000-sequence runs, which finish tree, merge and extraction in one job.
+  [large-trees-efficiency]
+- **Is it 35,613 sequences or about 35,000?** The tree's size differs between
+  runs, from 34,918 to 35,613 sequences, about two percent, because staggered
+  hardware failures make some forks sensitive to timing. 35,613 is the run
+  whose histories are shown; the timings come from several runs. The
+  tube-rupture tree reproduces exactly. [large-trees; large-trees-efficiency]
+:::

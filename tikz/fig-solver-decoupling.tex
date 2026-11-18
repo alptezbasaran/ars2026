@@ -1,0 +1,27 @@
+\documentclass[tikz,border=4pt]{standalone}
+\input{preamble}
+\begin{document}
+\begin{tikzpicture}[>=Stealth, font=\scriptsize,
+    bx/.style={rectangle, rounded corners=2pt, draw=black!40,
+        fill=black!3, align=center, inner sep=5pt},
+    go/.style={->, thick, black!55}]
+  % logo-ads node dropped: the logo is referenced separately in the qmd
+  \node[bx, text width=3.0cm, minimum height=2.5cm] (eng) at (1.9,-1.6)
+    {\textbf{the engine}\\[2pt]DET $+$ crew $+$\\dispatcher $+$
+     checkpoints\\[3pt]{\tiny everything above the solver}};
+  \node[bx, text width=3.2cm, draw=InnovationBlue!80,
+        fill=InnovationBlue!6, minimum height=2.5cm] (ifc) at (6.1,-1.6)
+    {\texttt{ThermalHydraulic-}\\\texttt{Solver}\\[2pt]
+     {\tiny advance $\cdot$ intervene $\cdot$ state\\checkpoint $\cdot$ restore\\
+      callbacks at evaluation and\\branching points}};
+  \node[bx, text width=3.6cm] (rel) at (10.9,-0.75)
+    {\textbf{RelapSolver}\\RELAP5/MOD3.3, in-process Fortran;
+     restart image kept in memory};
+  \node[bx, text width=3.6cm] (rest) at (10.9,-2.55)
+    {\textbf{RestApiSolver}\\HTTP/JSON to any
+     external code; checkpoint: a \textasciitilde100-byte ID};
+  \draw[go] (eng) -- (ifc);
+  \draw[go] (ifc.east) -- (rel.west);
+  \draw[go] (ifc.east) -- (rest.west);
+\end{tikzpicture}
+\end{document}

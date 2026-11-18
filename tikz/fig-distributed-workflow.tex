@@ -1,0 +1,64 @@
+\documentclass[tikz,border=4pt]{standalone}
+\input{preamble}
+\begin{document}
+\begin{tikzpicture}[>=Stealth, font=\scriptsize, scale=0.92,
+    every node/.style={transform shape},
+    wb/.style={rectangle, rounded corners=2pt, draw=black!40,
+        fill=white, align=center, inner sep=4pt,
+        minimum height=0.9cm},
+    lanelab/.style={font=\tiny\bfseries, text=black!45,
+        anchor=north west},
+    go/.style={->, thick, black!55},
+    mlab/.style={font=\tiny, text=black!60, align=center,
+        fill=white, inner sep=1pt}]
+  % lanes
+  \fill[black!3, rounded corners=3pt] (-0.15,0.45)
+    rectangle (12.55,-1.25);
+  \fill[black!3, rounded corners=3pt] (-0.15,-1.55)
+    rectangle (12.55,-2.85);
+  \fill[black!3, rounded corners=3pt] (-0.15,-3.15)
+    rectangle (12.55,-4.35);
+  \node[lanelab] at (-0.05,0.42) {RANK 0: SERVER};
+  \node[lanelab] at (-0.05,-1.58) {RANK $i$: SENDER};
+  \node[lanelab] at (-0.05,-3.18) {RANK $j$: RECEIVER};
+  % server lane
+  \node[wb, text width=1.9cm] (assign) at (1.4,-0.5)
+    {\textbf{assign} a\\sequence};
+  \node[wb, text width=2.6cm] (collect) at (5.3,-0.5)
+    {\textbf{collect} the report:\\new branches, times};
+  \node[wb, text width=2.1cm] (pair) at (9.1,-0.5)
+    {\textbf{pair} sender\\$\rightarrow$ receiver};
+  \node[wb, text width=1.6cm] (merge) at (11.75,-0.5)
+    {\textbf{merge} at\\shutdown};
+  % sender lane
+  \node[wb, text width=3.6cm, draw=InnovationBlue!80,
+        fill=InnovationBlue!8] (run) at (3.55,-2.32)
+    {\textbf{run} the transient:\\\emph{the single-CPU workflow}};
+  \node[wb, text width=3.3cm] (hold) at (8.6,-2.32)
+    {pivotal event: \textbf{hold} the\\2.6\,MB restart record};
+  % receiver lane
+  \node[wb, text width=3.0cm] (own) at (3.6,-3.88)
+    {meanwhile: running\\its own sequence};
+  \node[wb, text width=3.6cm] (recv) at (8.6,-3.88)
+    {\textbf{receive} $\rightarrow$ restore
+     $\rightarrow$\\continue the tree};
+  % flows
+  \draw[go] (assign) -- node[mlab, right=4pt, pos=0.52]
+    {task: IDs only} (run);
+  \draw[go] (run) -- (hold);
+  \draw[go] (hold) -- node[mlab, above=2pt, pos=0.48]
+    {report: metadata} (collect);
+  \draw[go] (pair.east) -- (10.72,-0.5) -- (10.72,-3.88)
+    -- (recv.east);
+  \node[mlab, rotate=90] at (10.72,-2.05) {assignment};
+  \draw[->, line width=2pt, PyromanFlame] (hold) --
+    node[mlab, text=PyromanFlame!85!black, align=right, left=3pt,
+    yshift=-2.5pt]
+    {2.6\,MB restart image\\\textbf{never through rank 0}}
+    (recv);
+  \draw[go] (pair.north) .. controls +(-1.5,0.58) and +(1.5,0.58)
+    .. (assign.north);
+  \node[font=\tiny, text=black!55, fill=white, inner sep=1pt]
+    at (5.25,0.74) {until the queue drains};
+\end{tikzpicture}
+\end{document}

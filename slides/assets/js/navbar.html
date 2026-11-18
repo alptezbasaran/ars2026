@@ -1,0 +1,216 @@
+<script>
+// SimpleDarkBlue chrome for reveal.js: 7-cell section nav strip + custom
+// slide numbering (mainline k/M, Backup B1..Bn). The defense deck's strip
+// with this talk's section names.
+(function () {
+  const SECTIONS = [
+    "Motivation", "Solver contract", "Parallel engine", "Demonstration",
+    "Performance", "Outlook", "Backup"
+  ];
+
+  function build() {
+    const nav = document.createElement("div");
+    nav.id = "sdb-navbar";
+    SECTIONS.forEach(function (label, i) {
+      const c = document.createElement("div");
+      c.className = "cell";
+      c.dataset.cell = String(i + 1);
+      c.textContent = label;
+      nav.appendChild(c);
+    });
+    document.body.appendChild(nav);
+
+    const num = document.createElement("div");
+    num.id = "sdb-slideno";
+    document.body.appendChild(num);
+    return { nav: nav, num: num };
+  }
+
+  function computeLabels() {
+    // Mainline slides = counted slides with data-section 1..6;
+    // Backup slides (data-section 7) get B-numbers. Uncounted slides
+    // (title, dividers, thank-you) get no number.
+    const labels = new Map();
+    const slides = Array.prototype.slice.call(
+      document.querySelectorAll(".reveal .slides > section:not(.stack), .reveal .slides > section.stack > section"));
+    const counted = slides.filter(function (s) {
+      return s.getAttribute("data-visibility") !== "uncounted" &&
+             !s.classList.contains("divider");
+    });
+    const mainline = counted.filter(function (s) {
+      return (parseInt(s.dataset.section || "0", 10) || 0) <= 6;
+    });
+    const backup = counted.filter(function (s) {
+      return parseInt(s.dataset.section || "0", 10) === 7;
+    });
+    mainline.forEach(function (s, i) {
+      labels.set(s, (i + 1) + "/" + mainline.length);
+    });
+    backup.forEach(function (s, i) {
+      labels.set(s, "B" + (i + 1));
+    });
+    return labels;
+  }
+
+  function ready() {
+    const ui = build();
+    const labels = computeLabels();
+
+    // click-to-jump (2026-08-30): each cell goes to its section's first slide.
+    // The strip was display-only before, which read as a broken tab bar.
+    Array.prototype.forEach.call(ui.nav.children, function (cell, i) {
+      cell.style.cursor = "pointer";
+      cell.addEventListener("click", function () {
+        const hs = Reveal.getHorizontalSlides();
+        for (let h = 0; h < hs.length; h++) {
+          const sec = hs[h].dataset.section ||
+            (hs[h].querySelector("[data-section]") || {dataset: {}}).dataset.section;
+          if (parseInt(sec || "0", 10) === i + 1) { Reveal.slide(h); return; }
+        }
+      });
+    });
+
+    function update() {
+      const s = Reveal.getCurrentSlide();
+      const sec = parseInt(s.dataset.section || "0", 10) || 0;
+      ui.nav.className = "";
+      if (sec >= 1 && sec <= 7) {
+        ui.nav.classList.add("active-" + sec);
+      }
+      // hide strip on title/thank-you ([plain] frames in beamer)
+      if (!sec || s.classList.contains("thank-you") ||
+          s.classList.contains("title-custom")) {
+        ui.nav.classList.add("navbar-hidden");
+      }
+      const lab = labels.get(s) || "";
+      ui.num.textContent = lab;
+    }
+
+    Reveal.on("slidechanged", update);
+    Reveal.on("ready", update);
+    update();
+  }
+
+  if (window.Reveal && Reveal.isReady && Reveal.isReady()) { ready(); }
+  else if (window.Reveal) { Reveal.on("ready", ready); }
+  else { window.addEventListener("load", ready); }
+})();
+
+// crisp-zoom (2026-08-30): reveal 5.x scales the stage with transform: scale(),
+// which headed Chrome composites from a cached raster at fractional scales, so
+// every slide blurs when the window is larger than 1280x720. Reveal <=4 used
+// CSS zoom on desktop Chrome "so that content remains crisp": zoom is layout-
+// level, text rasterizes at final resolution by construction. Restore that
+// path whenever the deck scales UP; keep reveal's transform for scale <= 1
+// (zooming down shifts line breaks), for overview mode, and for PDF print.
+(function () {
+  function install() {
+    var sl = document.querySelector(".reveal .slides");
+    if (!sl) return;
+    function crisp() {
+      if (document.documentElement.classList.contains("print-pdf")) return;
+      if (Reveal.isOverview && Reveal.isOverview()) { sl.style.zoom = ""; return; }
+      var sc = Reveal.getScale();
+      if (sc > 1.02) {
+        sl.style.zoom = sc;
+        sl.style.transform = "none";
+        sl.style.left = ""; sl.style.top = "";
+        sl.style.bottom = ""; sl.style.right = "";
+      } else {
+        sl.style.zoom = "";
+      }
+    }
+    Reveal.on("resize", crisp);
+    Reveal.on("overviewshown", function () { sl.style.zoom = ""; });
+    Reveal.on("overviewhidden", function () { setTimeout(crisp, 50); });
+    // reveal.layout() re-asserts the transform outside 'resize' (font loads,
+    // sync calls); watch for it and swap back. crisp() writes transform "none",
+    // which the guard below skips, so the observer cannot loop.
+    new MutationObserver(function () {
+      if (Reveal.isOverview && Reveal.isOverview()) return;
+      var t = sl.style.transform;
+      if (t && t !== "none" && t.indexOf("scale") !== -1) crisp();
+    }).observe(sl, { attributes: true, attributeFilter: ["style"] });
+    crisp();
+  }
+  if (window.Reveal && Reveal.isReady && Reveal.isReady()) { install(); }
+  else if (window.Reveal) { Reveal.on("ready", install); }
+  else { window.addEventListener("load", install); }
+})();
+
+// fit-to-screen (2026-11-15, Alp: "It should look nice on a laptop screen"). The stage is
+// 1280 x 720 on a 16:9 screen, as before, and grows taller on a taller one (up to 1280 x 860,
+// which covers 16:10 and 3:2 laptops), so a laptop shows a full slide instead of a 16:9
+// stage with a blank band under it. Only the height changes, so reveal's scale, which the
+// width sets on such a screen, stays what it was, and every slide keeps its 16:9 layout: the
+// title band stays under the nav strip, the slideref line and the title panels follow the
+// stage's bottom edge, and the theme moves the content down by a share of the extra height
+// (--stage-extra, in stage px) so the added room sits above and below it.
+// To switch this off, set MAX_H to 720.
+(function () {
+  var W = 1280, H0 = 720, MAX_H = 860;
+  function install() {
+    if (/print-pdf/i.test(window.location.search)) return;       // the PDF pages stay 1280 x 720
+    var root = document.documentElement, view = Reveal.getViewportElement ? Reveal.getViewportElement() : null;
+    function apply() {
+      if (root.classList.contains("print-pdf")) return;
+      var h = Math.round(Math.max(H0, Math.min(MAX_H, W * window.innerHeight / window.innerWidth)));
+      var cfg = Reveal.getConfig();
+      if (cfg.height === h) return;
+      cfg.height = h;
+      root.style.setProperty("--stage-extra", (h - H0) + "px");
+      if (view) view.style.setProperty("--slide-height", h + "px");
+      Reveal.layout();
+      // An animation page fits itself to the stage on its own resize event; the ones already
+      // loaded are told, once the crisp-zoom above has settled.
+      setTimeout(function () {
+        Array.prototype.forEach.call(document.querySelectorAll(".reveal .backgrounds iframe"), function (f) {
+          try { f.contentWindow.dispatchEvent(new Event("resize")); } catch (e) {}
+        });
+      }, 80);
+    }
+    window.addEventListener("resize", apply);
+    apply();
+  }
+  if (window.Reveal && Reveal.isReady && Reveal.isReady()) { install(); }
+  else if (window.Reveal) { Reveal.on("ready", install); }
+  else { window.addEventListener("load", install); }
+})();
+
+// band balance (2026-11-17, Alp: "top and bottom red paddings are not the same. The issue
+// persists in every slide."). The tab strip keeps its pixel height while the slide scales and
+// is placed differently by reveal's transform and by the crisp zoom, so the red left visible
+// above a title depended on the window. The strip's lower edge is published as --band-top, in
+// stage px below the slide's top; the theme places the title from it, and the animation pages,
+// which draw their own band, read it from here (they are told with a resize event).
+(function () {
+  function install() {
+    if (/print-pdf/i.test(window.location.search)) return;       // no strip on the PDF pages
+    var root = document.documentElement;
+    function measure() {
+      if (root.classList.contains("print-pdf")) return;
+      if (Reveal.isOverview && Reveal.isOverview()) return;
+      var s = Reveal.getCurrentSlide(), sc = Reveal.getScale();
+      if (!s || !sc) return;
+      var navH = parseFloat(getComputedStyle(root).getPropertyValue("--navbar-h")) || 26;
+      var d = (navH - s.getBoundingClientRect().top) / sc;
+      if (!isFinite(d)) return;
+      var v = d.toFixed(2) + "px";
+      if (root.style.getPropertyValue("--band-top") === v) return;
+      root.style.setProperty("--band-top", v);
+      Array.prototype.forEach.call(document.querySelectorAll(".reveal .backgrounds iframe"), function (f) {
+        try { f.contentWindow.dispatchEvent(new Event("resize")); } catch (e) {}
+      });
+    }
+    function soon() { requestAnimationFrame(measure); setTimeout(measure, 150); }
+    Reveal.on("resize", soon);
+    Reveal.on("slidechanged", soon);
+    Reveal.on("overviewhidden", soon);
+    window.addEventListener("resize", soon);
+    soon();
+  }
+  if (window.Reveal && Reveal.isReady && Reveal.isReady()) { install(); }
+  else if (window.Reveal) { Reveal.on("ready", install); }
+  else { window.addEventListener("load", install); }
+})();
+</script>

@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Serialization: the live state becomes bytes, travels, and comes back to life</title>
+<style>
+@import url("../fonts/open-sans.css");
+body{background:#ffffff;display:grid;place-items:center;height:100vh;margin:0;overflow:hidden;font-family:'Open Sans',system-ui,sans-serif;color:#222;}
+.wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;}
+svg{width:min(96vw,170vh);height:auto;display:block;overflow:visible;}
+button{position:fixed;bottom:14px;right:18px;background:#fff;color:#427E93;border:1px solid #427E93;padding:6px 18px;border-radius:4px;cursor:pointer;font-size:13px;letter-spacing:1px;font-family:inherit;}
+button:hover{background:#427E93;color:#fff;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<svg id="stage" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 680" font-family="Open Sans, system-ui, sans-serif">
+  <rect x="-400" y="-50" width="2080" height="101.5" fill="#CC0000"/>
+  <text x="20" y="35.5" font-size="34.5" fill="#ffffff">Serialization: live state to bytes, and back to life</text>
+  <g id="left"></g>
+  <g id="mid"></g>
+  <g id="right"></g>
+  <text id="caption" x="40" y="640" font-size="18" fill="#222"></text>
+  <text id="closer" x="40" y="668" font-size="18.5" font-weight="600" fill="#B40000" opacity="0"></text>
+</svg>
+</div>
+<button onclick="replay()">Replay</button>
+<script>
+"use strict";
+const NS = "http://www.w3.org/2000/svg";
+const INK = "#222", MUTED = "#737373", LINE = "#d9dde2", RED = "#B40000", GREEN = "#008473", GHOST = "#b8bec6";
+const C = { root: "#4a4a4a", panel: "#427E93", crew: "#D14905", proc: "#6F7D1C", fail: "#4156A1", hist: "#008473", relap: "#8a8a8a" };
+function mk(tag, a, parent) { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, String(a[k])); (parent || document.getElementById("stage")).appendChild(e); return e; }
+function hexA(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; }
+const clamp01 = v => Math.max(0, Math.min(1, v));
+const ease = v => { v = clamp01(v); return v < 0.5 ? 2 * v * v : 1 - Math.pow(-2 * v + 2, 2) / 2; };
+// ---------------------------------------------------------------- the web of objects, drawn once per panel
+// One snapshot: a struct whose fields point to objects, which point to objects. Two of them have two owners
+// (the crew's attention on the alarm history; a memory chunk held by both crew modules), one has a runtime
+// kind, and the RELAP5 image is a block of opaque bytes. Illustrative: the real snapshot is thousands of objects.
+const FY = [196, 256, 316, 376, 436, 496, 560];
+const FIELDS = ["control panel", "decision maker", "action taker", "procedure", "failures", "history", "plant image"];
+const SPEC = [
+  { id: "root", x: 20, y: 140, w: 118, h: 450, title: "the snapshot", color: C.root, root: true },
+  { id: "panel", x: 180, yc: 196, w: 140, h: 40, title: "control panel", sub: "alarms →, displays, trends", color: C.panel },
+  { id: "alarm", x: 366, yc: 196, w: 114, h: 40, title: "alarm history", sub: "times, states", color: C.panel },
+  { id: "dm", x: 180, yc: 256, w: 140, h: 40, title: "decision maker", sub: "attention →, memory →", color: C.crew },
+  { id: "chunk", x: 366, yc: 286, w: 114, h: 40, title: "memory chunk", sub: "a belief, its age", color: C.crew },
+  { id: "at", x: 180, yc: 316, w: 140, h: 40, title: "action taker", sub: "current →, timers", color: C.crew },
+  { id: "proc", x: 180, yc: 376, w: 140, h: 40, title: "procedure, mid-step", sub: "step pointer, expects →", color: C.proc },
+  { id: "expect", x: 366, yc: 376, w: 114, h: 40, title: "expectation", sub: "", chip: "kind: OR", color: C.proc },
+  { id: "fail", x: 180, yc: 436, w: 140, h: 40, title: "sampled failures", sub: "pump B: failed", color: C.fail },
+  { id: "hist", x: 180, yc: 496, w: 140, h: 40, title: "parameter history", sub: "", spark: true, color: C.hist },
+  { id: "relap", x: 180, yc: 560, w: 300, h: 56, title: "RELAP5 plant image", sub: "opaque bytes, most of the size", color: C.relap },
+];
+for (const s of SPEC) { if (!s.root) s.y = s.yc - s.h / 2; else s.yc = s.y + s.h / 2; s.cx = s.x + s.w / 2; }
+const ARROWS = [
+  { id: "r-panel", from: "root", fy: 0, to: "panel" }, { id: "r-dm", from: "root", fy: 1, to: "dm" }, { id: "r-at", from: "root", fy: 2, to: "at" },
+  { id: "r-proc", from: "root", fy: 3, to: "proc" }, { id: "r-fail", from: "root", fy: 4, to: "fail" }, { id: "r-hist", from: "root", fy: 5, to: "hist" },
+  { id: "r-relap", from: "root", fy: 6, to: "relap" },
+  { id: "panel-alarm", from: "panel", to: "alarm" },
+  { id: "dm-chunk", from: "dm", to: "chunk", dy0: 7, dy1: -7 },
+  { id: "dm-alarm", from: "dm", to: "alarm", curve: true },
+  { id: "at-chunk", from: "at", to: "chunk", dy0: -7, dy1: 7 },
+  { id: "proc-expect", from: "proc", to: "expect" },
+];
+const S = Object.fromEntries(SPEC.map(s => [s.id, s]));
+function arrowGeom(a, ox) {
+  const f = S[a.from], t = S[a.to];
+  if (a.curve) { // the crew's attention, curving up to the bottom of the alarm history
+    const x1 = ox + f.x + f.w, y1 = f.yc - 9, x2 = ox + t.x + t.w * 0.35, y2 = t.y + t.h, cx = ox + t.x - 4, cy = y1 - 2;
+    return { d: `M${x1},${y1} Q${cx},${cy} ${x2},${y2}`, x2, y2, ang: Math.atan2(y2 - cy, x2 - cx) };
+  }
+  const y1 = a.from === "root" ? FY[a.fy] : f.yc + (a.dy0 || 0), y2 = t.yc + (a.dy1 || 0);
+  const x1 = ox + f.x + f.w, x2 = ox + t.x;
+  return { d: `M${x1},${y1} L${x2},${y2}`, x2, y2, ang: Math.atan2(y2 - y1, x2 - x1) };
+}
+function headPts(x, y, ang) { const L = 7, W = 3.6; const bx = x - L * Math.cos(ang), by = y - L * Math.sin(ang); const nx = -Math.sin(ang) * W, ny = Math.cos(ang) * W; return `${x},${y} ${bx + nx},${by + ny} ${bx - nx},${by - ny}`; }
+function buildPanel(g, ox, title, sub) {
+  mk("text", { x: ox, y: 100, "font-size": 17, "font-weight": 600, fill: INK }, g).textContent = title;
+  const subT = mk("text", { x: ox, y: 119, "font-size": 12.5, fill: MUTED }, g); subT.textContent = sub;
+  const box = {}, arr = {};
+  for (const a of ARROWS) {
+    const gm = arrowGeom(a, ox);
+    const path = mk("path", { d: gm.d, fill: "none", stroke: LINE, "stroke-width": 1.6 }, g);
+    const head = mk("polygon", { points: headPts(gm.x2, gm.y2, gm.ang), fill: LINE }, g);
+    arr[a.id] = { path, head, spec: a };
+  }
+  for (const s of SPEC) {
+    const gg = mk("g", {}, g);
+    const rect = mk("rect", { x: ox + s.x, y: s.y, width: s.w, height: s.h, rx: 6, fill: "#fff", stroke: LINE, "stroke-width": 1.5 }, gg);
+    const items = { rect, sub: null, chip: null, chipT: null, fields: [], dots: [], spark: null, tick: null };
+    if (s.root) {
+      items.title = mk("text", { x: ox + s.x + s.w / 2, y: s.y + 22, "font-size": 12.5, "font-weight": 600, fill: INK, "text-anchor": "middle" }, gg); items.title.textContent = s.title;
+      FIELDS.forEach((f, i) => {
+        const t = mk("text", { x: ox + s.x + 10, y: FY[i] + 4, "font-size": 11, fill: INK }, gg); t.textContent = f; items.fields.push(t);
+        items.dots.push(mk("circle", { cx: ox + s.x + s.w, cy: FY[i], r: 3.2, fill: LINE }, gg));
+      });
+    } else {
+      items.title = mk("text", { x: ox + s.x + 10, y: s.y + (s.sub || s.spark || s.chip ? 17 : 24), "font-size": 12.5, "font-weight": 600, fill: INK }, gg); items.title.textContent = s.title;
+      if (s.sub) { items.sub = mk("text", { x: ox + s.x + 10, y: s.y + 32, "font-size": 10.5, fill: MUTED }, gg); items.sub.textContent = s.sub; }
+      if (s.spark) { // a little time series inside the history box
+        const pts = []; for (let i = 0; i <= 22; i++) { const xx = ox + s.x + 10 + i * 5; const yy = s.y + 30 - 7 * Math.exp(-i / 9) * Math.cos(i / 2.2) - (i > 12 ? (i - 12) * 0.5 : 0); pts.push(`${xx.toFixed(1)},${yy.toFixed(1)}`); }
+        items.spark = mk("polyline", { points: pts.join(" "), fill: "none", stroke: s.color, "stroke-width": 1.5, "stroke-linejoin": "round" }, gg);
+      }
+      if (s.chip) {
+        items.chip = mk("rect", { x: ox + s.x + 10, y: s.y + 21, width: 50, height: 14, rx: 7, fill: hexA(s.color, 0.12), stroke: s.color, "stroke-width": 1 }, gg);
+        items.chipT = mk("text", { x: ox + s.x + 35, y: s.y + 31.5, "font-size": 9.5, "font-weight": 600, fill: s.color, "text-anchor": "middle" }, gg); items.chipT.textContent = s.chip;
+      }
+      if (s.id === "chunk" || s.id === "alarm") { // the pointer targets with two owners: mark the second owner's dock
+        items.dock = mk("circle", { cx: ox + s.x, cy: s.yc + (s.id === "chunk" ? 7 : 0), r: 0, fill: s.color }, gg);
+      }
+    }
+    items.tick = mk("g", { opacity: 0 }, gg);
+    items.tickC = mk("circle", { cx: ox + s.x + s.w - 3, cy: s.y + 3, r: 7.5, fill: GREEN }, items.tick);
+    items.tickT = mk("text", { x: ox + s.x + s.w - 3, y: s.y + 6.8, "font-size": 10.5, "font-weight": 700, fill: "#fff", "text-anchor": "middle" }, items.tick);
+    items.g = gg; items.spec = s; box[s.id] = items;
+  }
+  const tag = mk("text", { x: 0, y: 0, "font-size": 11, fill: MUTED, opacity: 0 }, g);
+  const cursor = mk("circle", { r: 8.5, fill: "none", stroke: RED, "stroke-width": 2.5, opacity: 0 }, g);
+  return { g, ox, subT, box, arr, tag, cursor, subDefault: sub };
+}
+const L = buildPanel(document.getElementById("left"), 40, "the worker that reached the branch point: the live state", "drawn small; the real snapshot is thousands of objects, about a hundred classes");
+const R = buildPanel(document.getElementById("right"), 760, "another worker: the state rebuilt, and resumed", "the same shape, the same values, the same identities");
+// ---------------------------------------------------------------- the archive: one stream of bytes in the middle
+const M = document.getElementById("mid");
+const SX = 618, SW = 44, SY0 = 140;
+mk("text", { x: 640, y: 100, "font-size": 17, "font-weight": 600, fill: INK, "text-anchor": "middle" }, M).textContent = "the archive";
+mk("text", { x: 640, y: 119, "font-size": 12.5, fill: MUTED, "text-anchor": "middle" }, M).textContent = "one stream of bytes";
+mk("rect", { x: SX, y: SY0, width: SW, height: 450, rx: 4, fill: "#f3f4f6" }, M);
+const SEGS = [["root", 16, C.root, "snapshot"], ["panel", 26, C.panel, "control panel"], ["alarm", 22, C.panel, "alarm history"], ["dm", 26, C.crew, "decision maker"],
+  ["ref1", 3, C.crew, ""], ["chunk", 22, C.crew, "memory chunk"], ["at", 26, C.crew, "action taker"], ["ref2", 3, C.crew, ""], ["proc", 26, C.proc, "procedure"],
+  ["expect", 26, C.proc, "expectation"], ["fail", 26, C.fail, "failures"], ["hist", 26, C.hist, "history"], ["relap", 170, C.relap, "plant image"]];
+const seg = {}; { let y = SY0 + 2; for (const [id, h, col, lab] of SEGS) {
+  const r = mk("rect", { x: SX + 3, y, width: SW - 6, height: 0, rx: 2, fill: col, opacity: 1 }, M);
+  const items = { rect: r, y, h, col };
+  if (id === "expect") { items.kind = mk("rect", { x: SX + 3, y, width: SW - 6, height: 0, rx: 2, fill: C.root, opacity: 0.75 }, M); }
+  if (id === "relap") { for (const fr of [0.33, 0.66]) items[fr] = mk("line", { x1: SX + 1, y1: y + h * fr + 5, x2: SX + SW - 1, y2: y + h * fr - 5, stroke: "#fff", "stroke-width": 3, opacity: 0 }, M); items.breaks = [items[0.33], items[0.66]]; }
+  if (lab) { items.label = mk("text", { x: SX - 7, y: y + h / 2 + 3.5, "font-size": 10, fill: MUTED, "text-anchor": "end", opacity: 0 }, M); items.label.textContent = lab; }
+  seg[id] = items; y += h + 2; } }
+seg.relap.label.setAttribute("y", seg.relap.y + 14);
+const relapNote = mk("text", { x: SX - 7, y: seg.relap.y + 28, "font-size": 9.5, fill: MUTED, "text-anchor": "end", opacity: 0 }, M);
+mk("tspan", { x: SX - 7, dy: 0 }, relapNote).textContent = "most of the bytes,";
+mk("tspan", { x: SX - 7, dy: 12 }, relapNote).textContent = "far longer than drawn";
+const readHead = mk("polygon", { points: `${SX - 9},${SY0} ${SX - 2},${SY0 + 4} ${SX - 9},${SY0 + 8}`, fill: RED, opacity: 0 }, M);
+// the wire: from the sender's panel into the archive and out to the receiver
+const WX0 = SX + SW + 4, WX1 = 776, WY = 365;
+const wireOut = mk("path", { d: `M${WX0},${WY} L${WX1 - 2},${WY}`, fill: "none", stroke: LINE, "stroke-width": 2, "stroke-dasharray": "7 6" }, M);
+const wireHead = mk("polygon", { points: headPts(WX1, WY, 0), fill: LINE }, M);
+const wireT = mk("text", { x: (WX0 + WX1) / 2, y: WY - 9, "font-size": 10.5, "font-weight": 600, fill: INK, "text-anchor": "middle", opacity: 0 }, M); wireT.textContent = "over MPI";
+const wireT2 = mk("text", { x: (WX0 + WX1) / 2, y: WY + 16, "font-size": 10, fill: MUTED, "text-anchor": "middle", opacity: 0 }, M); wireT2.textContent = "worker to worker";
+const midSub = M.querySelectorAll("text")[1];
+// ---------------------------------------------------------------- the walk: depth first, one object at a time
+// A step visits a box (arriving along "via"), writes its segment, and may show a one-line tag. "ref" steps reach an
+// object that is already in the archive: a back-reference is written instead of a second copy.
+const WALK = [
+  { box: "root", d: 0.7, seg: "root" },
+  { box: "panel", d: 0.8, seg: "panel", via: "r-panel", tag: ["its own instructions: which fields, which pointers", "the same instructions, reading instead of writing"], at: "panel-top" },
+  { box: "alarm", d: 0.6, seg: "alarm", via: "panel-alarm" },
+  { box: "dm", d: 0.6, seg: "dm", via: "r-dm" },
+  { box: "alarm", d: 0.9, seg: "ref1", via: "dm-alarm", ref: true, tag: ["already written: a back-reference, not a second copy", "the same object, not a copy: its identity is kept"], at: "alarm-top" },
+  { box: "chunk", d: 0.6, seg: "chunk", via: "dm-chunk" },
+  { box: "at", d: 0.6, seg: "at", via: "r-at" },
+  { box: "chunk", d: 0.9, seg: "ref2", via: "at-chunk", ref: true, tag: ["again: a back-reference", "one object, two owners"], at: "chunk-right" },
+  { box: "proc", d: 0.6, seg: "proc", via: "r-proc" },
+  { box: "expect", d: 0.9, seg: "expect", via: "proc-expect", tag: ["its kind is recorded, so the copy is built as the right class", "built as the recorded kind"], at: "expect-bottom" },
+  { box: "fail", d: 0.6, seg: "fail", via: "r-fail" },
+  { box: "hist", d: 0.6, seg: "hist", via: "r-hist" },
+  { box: "relap", d: 1.0, seg: "relap", via: "r-relap", tag: ["copied whole, as opaque bytes", "handed to RELAP5 to restore"], at: "relap-right" },
+];
+const WALK_D = WALK.reduce((s, w) => s + w.d, 0);
+{ let t = 0; for (const w of WALK) { w.t0 = t; t += w.d; } }
+const T0 = 2.0, W_END = T0 + WALK_D, WIRE_D = 2.4, R0 = W_END + WIRE_D, R_END = R0 + WALK_D;
+const CLOSE0 = R_END + 2.4, T_END = CLOSE0 + 2.0;
+const CAPS = [
+  [0, "At a branch point the state is a web of objects: fields that point to other objects, one object with two owners, objects of several kinds."],
+  [T0, "Serialization walks the web: each object's own instructions write its fields, and every pointer is followed to the object it names."],
+  [W_END, "One stream of bytes: over MPI to another worker, or to a file as a checkpoint. The server only ever sees a few numbers."],
+  [R0, "The receiver reads the same stream with the same instructions and rebuilds the web, object by object, pointer by pointer."],
+  [R_END, "Identical, field for field: the transient resumes here as if it had never moved. Everything parallel rests on this."],
+];
+const CLOSER = "What it entailed: hand-written instructions for about a hundred classes across 207 headers, verified against the serial run.";
+function tagPos(P, at) {
+  const ox = P.ox;
+  if (at === "panel-top") return { x: ox + S.panel.x, y: S.panel.y - 9, anchor: "start" };
+  if (at === "alarm-top") return { x: ox + S.alarm.x + S.alarm.w, y: S.alarm.y - 9, anchor: "end" };
+  if (at === "chunk-right") return { x: ox + S.chunk.x + S.chunk.w, y: S.chunk.y + S.chunk.h + 14, anchor: "end" };
+  if (at === "expect-bottom") return { x: ox + S.proc.x, y: S.expect.y + S.expect.h + 14, anchor: "start" };
+  if (at === "relap-right") return { x: ox + S.relap.x + S.relap.w - 10, y: S.relap.yc + 4, anchor: "end" };
+  return { x: ox, y: 0, anchor: "start" };
+}
+const VISITED_BY = {}; // which walk step first writes each box
+for (const w of WALK) if (!w.ref && !(w.box in VISITED_BY)) VISITED_BY[w.box] = w;
+// ---------------------------------------------------------------- render: everything is a function of t, so seeking works
+function styleBox(P, id, state, ghost) { // state: 0 untouched, 1 current, 2 done; ghost: the receiver's snapshot before the bytes arrive
+  const b = P.box[id], s = b.spec;
+  if (ghost) {
+    b.rect.setAttribute("fill", "#fff"); b.rect.setAttribute("stroke", GHOST); b.rect.setAttribute("stroke-width", 1.5); b.rect.setAttribute("stroke-dasharray", "4 3");
+    b.title.setAttribute("fill", GHOST); if (b.chip) { b.chip.setAttribute("opacity", 0); b.chipT.setAttribute("opacity", 0); }
+    return;
+  }
+  b.rect.setAttribute("stroke-dasharray", "none"); b.title.setAttribute("fill", INK); if (b.chip) { b.chip.setAttribute("opacity", 1); b.chipT.setAttribute("opacity", 1); }
+  if (state === 0) { b.rect.setAttribute("fill", "#fff"); b.rect.setAttribute("stroke", LINE); b.rect.setAttribute("stroke-width", 1.5); }
+  else { b.rect.setAttribute("fill", hexA(s.color, 0.10)); b.rect.setAttribute("stroke", s.color); b.rect.setAttribute("stroke-width", state === 1 ? 3 : 2); }
+}
+function styleArrow(P, id, on, col, dashed) {
+  const a = P.arr[id]; const c = on ? col : LINE;
+  a.path.setAttribute("stroke", c); a.head.setAttribute("fill", c); a.path.setAttribute("stroke-width", on ? 2.2 : 1.6);
+  a.path.setAttribute("stroke-dasharray", dashed ? "5 4" : "none");
+}
+function renderPanel(P, u, side) { // u: seconds into this panel's walk (negative = not started); side: "L" or "R"
+  const started = u >= 0, done = u >= WALK_D;
+  // boxes and arrows: on the left everything is drawn from the start; on the right a box appears when it is read
+  for (const s of SPEC) {
+    const w = VISITED_BY[s.id]; const arrive = w.t0 + 0.25 * w.d;
+    const b = P.box[s.id];
+    let st = 0; if (started && u >= arrive) st = (u < w.t0 + w.d && !done) ? 1 : 2;
+    if (side === "R") { const vis = started && u >= arrive; const pop = vis ? ease((u - arrive) / 0.25) : 0;
+      b.g.setAttribute("opacity", s.root ? 1 : pop);
+      const sc = s.root ? 1 : 0.85 + 0.15 * pop; const cx = P.ox + s.cx, cy = s.yc;
+      b.g.setAttribute("transform", s.root ? "" : `translate(${cx},${cy}) scale(${sc}) translate(${-cx},${-cy})`);
+      if (s.root) { b.fields.forEach((f, i) => { const wa = WALK.find(x => x.via === ARROWS.filter(a => a.from === "root")[i].id); f.setAttribute("fill", u >= wa.t0 + 0.25 * wa.d ? INK : GHOST); }); }
+    } else if (s.root) { b.fields.forEach(f => f.setAttribute("fill", INK)); }
+    styleBox(P, s.id, st, side === "R" && s.root && !started);
+    // the root's pointer dots colour up as their field is followed
+    if (s.root) b.dots.forEach((d, i) => { const a = ARROWS.filter(x => x.from === "root")[i]; const wa = WALK.find(x => x.via === a.id); d.setAttribute("fill", started && u >= wa.t0 + 0.12 * wa.d ? S[a.to].color : (side === "R" ? GHOST : LINE)); });
+  }
+  for (const a of ARROWS) {
+    const wa = WALK.find(x => x.via === a.id); const on = started && u >= wa.t0 + 0.12 * wa.d;
+    if (side === "R") { P.arr[a.id].path.setAttribute("opacity", on ? 1 : 0); P.arr[a.id].head.setAttribute("opacity", on ? 1 : 0); }
+    styleArrow(P, a.id, on, S[a.to].color, false);
+  }
+  // the second owner's dock on shared objects
+  for (const id of ["alarm", "chunk"]) { const wa = WALK.find(x => x.ref && x.box === id); const on = started && u >= wa.t0 + 0.25 * wa.d; P.box[id].dock.setAttribute("r", on ? 3.4 : 0); }
+  // cursor and tag
+  const cur = started && !done ? WALK.find(w => u >= w.t0 && u < w.t0 + w.d) : null;
+  if (cur) {
+    const i = WALK.indexOf(cur); const prev = cur.ref ? S[P.arr[cur.via].spec.from] : (i ? S[WALK[i - 1].box] : S.root);
+    const to = S[cur.box]; const f = ease((u - cur.t0) / (0.25 * cur.d));
+    const land = b => b.root ? { x: P.ox + b.x + b.w / 2, y: b.y } : (() => { const a = ARROWS.find(x => x.to === b.id && !x.curve); const gm = arrowGeom(a, P.ox); return { x: gm.x2, y: gm.y2 }; })();
+    const from = i ? land(prev) : land(S.root);
+    const gmTo = cur.via ? arrowGeom(P.arr[cur.via].spec, P.ox) : null;
+    const px = from.x, py = from.y, tx = gmTo ? gmTo.x2 : P.ox + to.x + to.w / 2, ty = gmTo ? gmTo.y2 : to.y;
+    P.cursor.setAttribute("cx", px + (tx - px) * f); P.cursor.setAttribute("cy", py + (ty - py) * f); P.cursor.setAttribute("opacity", 1);
+    if (cur.tag) { const pos = tagPos(P, cur.at); const k = (u - cur.t0) / cur.d; const op = k < 0.3 ? ease((k - 0.15) / 0.15) : 1;
+      P.tag.setAttribute("x", pos.x); P.tag.setAttribute("y", pos.y); P.tag.setAttribute("text-anchor", pos.anchor); P.tag.setAttribute("fill", MUTED);
+      P.tag.textContent = cur.tag[side === "L" ? 0 : 1]; P.tag.setAttribute("opacity", op); }
+    else P.tag.setAttribute("opacity", 0);
+  } else { P.cursor.setAttribute("opacity", 0); P.tag.setAttribute("opacity", 0); }
+  return { started, done };
+}
+function render(t) {
+  const uL = t - T0, uR = t - R0;
+  renderPanel(L, uL, "L");
+  renderPanel(R, uR, "R");
+  // the archive: segments grow while written, dim while read
+  for (const w of WALK) {
+    const sg = seg[w.seg]; const kw = clamp01((uL - w.t0 - 0.25 * w.d) / (0.6 * w.d)); const kr = clamp01((uR - w.t0 - 0.25 * w.d) / (0.6 * w.d));
+    const h = sg.h * ease(kw); sg.rect.setAttribute("height", h);
+    const consumed = uR >= w.t0 + 0.25 * w.d;
+    sg.rect.setAttribute("opacity", consumed ? 0.32 : 1);
+    if (sg.kind) { sg.kind.setAttribute("height", Math.min(6, h)); sg.kind.setAttribute("opacity", consumed ? 0.25 : 0.75); }
+    if (sg.breaks) sg.breaks.forEach(b => b.setAttribute("opacity", kw > 0.95 ? 0.95 : 0));
+    if (sg.label) sg.label.setAttribute("opacity", kw > 0.6 ? (consumed ? 0.5 : 1) : 0);
+    if (w.seg === "relap") relapNote.setAttribute("opacity", kw > 0.95 ? 1 : 0);
+    if (uR >= w.t0 && uR < w.t0 + w.d) { readHead.setAttribute("transform", `translate(0,${sg.y + Math.min(sg.h, 12) / 2 - 4 + (sg.h - 12) / 2 * ease(kr) - SY0})`); readHead.setAttribute("opacity", 1); }
+  }
+  if (uR < 0 || uR >= WALK_D) readHead.setAttribute("opacity", 0);
+  // the wire: dashes flow while the bytes travel
+  const wiring = t >= W_END && t < R0; const flowed = t >= W_END;
+  const off = -((t - W_END) * 40) % 13;
+  wireOut.setAttribute("stroke", flowed ? C.root : LINE); wireOut.setAttribute("stroke-dashoffset", wiring ? off : 0); wireOut.setAttribute("opacity", flowed ? (wiring ? 1 : 0.55) : 1);
+  wireHead.setAttribute("fill", flowed ? C.root : LINE);
+  wireT.setAttribute("opacity", flowed ? 1 : 0); wireT2.setAttribute("opacity", flowed ? 1 : 0);
+  midSub.textContent = t < W_END ? "one stream of bytes, in walk order" : (t < R0 ? "sent whole, or written to a file" : "read back in the same order");
+  // the check: a tick per object, top to bottom, the round-trip test's deep comparison
+  const sweep0 = R_END; const sweeping = t >= sweep0;
+  const order = SPEC.map(s => s.id);
+  order.forEach((id, i) => { const b = R.box[id]; const on = sweeping && t >= sweep0 + 0.25 + i * 0.13;
+    b.tickT.textContent = "✓"; b.tickC.setAttribute("fill", GREEN); b.tick.setAttribute("opacity", on ? 1 : 0); });
+  if (sweeping && t >= sweep0 + 0.25 + order.length * 0.13) {
+    R.subT.textContent = "identical, field for field: the transient resumes here";
+    R.subT.setAttribute("fill", GREEN); R.subT.setAttribute("font-weight", 600);
+  } else { R.subT.textContent = R.subDefault; R.subT.setAttribute("fill", MUTED); R.subT.setAttribute("font-weight", 400); }
+  // captions and the closer
+  let cap = CAPS[0][1]; for (const [tt, s] of CAPS) if (t >= tt) cap = s;
+  document.getElementById("caption").textContent = cap;
+  const closer = document.getElementById("closer"); closer.textContent = CLOSER; closer.setAttribute("opacity", t >= CLOSE0 ? ease((t - CLOSE0) / 0.6) : 0);
+}
+// ---------------------------------------------------------------- driver: play once, freeze, Replay
+let t = 0, playing = true, last = null;
+function frame(ts) { if (last == null) last = ts; const dt = Math.min(0.05, (ts - last) / 1000); last = ts;
+  if (playing) { t += dt; if (t >= T_END) { t = T_END; playing = false; } }
+  render(t); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+function replay() { t = 0; playing = true; last = null; }
+window.__anim = { T: T_END, seek(x) { playing = false; t = Math.max(0, Math.min(T_END, x)); render(t); } };
+const qs = new URLSearchParams(location.search); if (qs.get("t")) { t = parseFloat(qs.get("t")) || 0; }
+</script>
+
+<script>
+// deck bridge: inside the reveal deck, let the presenter move the deck from within
+// this animation. PageDown/PageUp (clickers), N/P and Esc go to reveal's postMessage
+// API; this page has no arrow-key controls of its own, so arrows forward immediately.
+// Outside the deck this is inert.
+(() => {
+  if (window.parent === window) return;
+  const send = m => window.parent.postMessage(JSON.stringify({ method: m, args: [] }), "*");
+  window.__deck = { next: () => send("next"), prev: () => send("prev") };
+  addEventListener("keydown", e => {
+    if (e.code === "PageDown" || e.code === "ArrowRight" || (e.key === "n" && !e.metaKey && !e.ctrlKey)) { e.preventDefault(); e.stopImmediatePropagation(); send("next"); }
+    else if (e.code === "PageUp" || e.code === "ArrowLeft" || (e.key === "p" && !e.metaKey && !e.ctrlKey)) { e.preventDefault(); e.stopImmediatePropagation(); send("prev"); }
+    else if (e.code === "Escape") { send("toggleOverview"); }
+  }, true);
+})();
+</script>
+
+<script>
+// deck fit: inside the reveal deck, lay this page out as a fixed 1280x720 slide and
+// scale it like reveal scales its slides.
+(() => {
+  if (window.parent === window) return;
+  const D = { w: 1280, h: 720 };
+  const w = document.querySelector(".wrap");
+  if (!w) return;
+  document.documentElement.style.overflow = "hidden";
+  document.body.style.overflow = "hidden";
+  Object.assign(w.style, { width: D.w + "px", maxWidth: "none", height: D.h + "px",
+    margin: "0", position: "absolute", left: "50%", top: "50%",
+    padding: "10px 0 0", boxSizing: "border-box", justifyContent: "flex-start" });
+  const stage = document.getElementById("stage");
+  if (stage) { stage.style.width = "1280px"; stage.style.height = "680px"; stage.style.margin = "0 auto"; }
+  // On a stage taller than 16:9 (the deck's fit-to-screen, on a laptop) everything under the
+  // title band moves down by half of the extra height, as the deck's own slides do. The band,
+  // the svg's first two children, stays where it is.
+  function lower(dy) { if (!stage) return; const on = dy > 0.5; stage.style.transform = on ? `translateY(${dy}px)` : "";
+    for (const el of Array.from(stage.children).slice(0, 2)) { if (on) el.setAttribute("transform", `translate(0,${-dy})`); else el.removeAttribute("transform"); } }
+  // place the box exactly where the deck places its slide box (read from the parent page;
+  // same origin), so bands and text line up at any window shape; fall back to centering
+  function fit() { let r = null; try { const el = window.parent.document.querySelector(".reveal .slides"); if (el) r = el.getBoundingClientRect(); } catch (e) {}
+    if (r && r.width > 100) { const k = r.width / D.w; Object.assign(w.style, { left: "0", top: "0", transformOrigin: "0 0", transform: `translate(${r.left}px,${r.top}px) scale(${k})` }); lower(Math.max(0, r.height / k - D.h) / 2); return; }
+    const s = Math.min(innerWidth / D.w, innerHeight / D.h) * 0.96;
+    Object.assign(w.style, { left: "50%", top: "50%", transformOrigin: "50% 50%", transform: `translate(-50%,-50%) scale(${s})` }); }
+  addEventListener("resize", fit); fit();
+})();
+</script>
+
+<script>
+// band balance (2026-11-17): inside the deck the tab strip covers the top of this page's red
+// band, by an amount that depends on the window. The deck publishes the strip's lower edge as
+// --band-top (stage px below the slide's top) and places its own titles from it; the same
+// shift is applied here to the band and its title. 5.46 is the distance both were drawn for.
+(() => {
+  if (window.parent === window) return;
+  const band = document.querySelector("svg#stage > rect"), title = document.querySelector("svg#stage > text");
+  if (!band || !title) return;
+  const H0 = parseFloat(band.getAttribute("height")), Y0 = parseFloat(title.getAttribute("y"));
+  function apply() {
+    let d = 0;
+    try {
+      const v = parseFloat(window.parent.document.documentElement.style.getPropertyValue("--band-top"));
+      if (!isNaN(v)) d = v - 5.46;
+    } catch (e) {}
+    band.setAttribute("height", (H0 + d).toFixed(2));
+    title.setAttribute("y", (Y0 + d).toFixed(2));
+  }
+  addEventListener("resize", apply);
+  addEventListener("load", apply);
+  apply();
+})();
+</script>
+</body>
+</html>

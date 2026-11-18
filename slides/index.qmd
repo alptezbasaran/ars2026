@@ -1,0 +1,68 @@
+---
+pagetitle: "From ADS-IDAC to OpenPRA (ARS 2026)"
+format: revealjs
+---
+
+## {#title .title-custom .no-band visibility="uncounted"}
+
+::: {.title-kicker}
+ARS 2026 · ANS Winter Conference and Expo
+:::
+
+::: {.title-main}
+From ADS-IDAC to OpenPRA: Enabling Dynamic Probabilistic Risk Assessment for
+Advanced Reactors
+:::
+
+::: {.title-rule}
+:::
+
+::: {.title-author}
+Alp Tezbasaran and Mihai A. Diaconeasa
+:::
+
+::: {.title-presenter}
+Presenting: **Kirill Shumilov**
+:::
+
+::: {.title-inst}
+Department of Nuclear Engineering<br>
+Probabilistic Risk Assessment Group<br>
+North Carolina State University
+:::
+
+<div class="title-paneldate">Phoenix, Arizona · November 18, 2026</div>
+
+<div class="title-qrcap">alptezbasaran.github.io/ars2026</div>
+
+<div class="title-qr"><img src="figs/qr_deck.svg" alt="QR code: these slides, alptezbasaran.github.io/ars2026"></div>
+
+<div class="title-footer">
+<img src="figs/logo-ncstate.png" alt="NC State University">
+</div>
+
+::: {.notes}
+Good morning. My name is Kirill Shumilov, and I am presenting work by Alp
+Tezbasaran and Mihai Diaconeasa, at NC State.
+
+This talk is about tooling. Dynamic PRA is the right method for advanced
+reactors, and the paper shows what it took to turn one dynamic PRA engine,
+ADS-IDAC, into a platform that other codes can connect to and that runs at
+scale, on its way into OpenPRA.
+
+The slides are online, and the QR code on this slide opens them.
+:::
+
+{{< include sections/01-motivation.qmd >}}
+
+{{< include sections/02-contract.qmd >}}
+
+{{< include sections/03-parallel.qmd >}}
+
+{{< include sections/04-demonstration.qmd >}}
+
+{{< include sections/05-performance.qmd >}}
+
+{{< include sections/06-outlook.qmd >}}
+
+{{< include sections/07-backup.qmd >}}

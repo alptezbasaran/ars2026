@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The parallel engine: one core against a server with workers</title>
+<style>
+@import url("../fonts/open-sans.css");
+body{background:#ffffff;display:grid;place-items:center;height:100vh;margin:0;overflow:hidden;font-family:'Open Sans',system-ui,sans-serif;color:#222;}
+.wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;}
+svg{width:min(96vw,170vh);height:auto;display:block;overflow:visible;}
+button{position:fixed;bottom:14px;right:18px;background:#fff;color:#427E93;border:1px solid #427E93;padding:6px 18px;border-radius:4px;cursor:pointer;font-size:13px;letter-spacing:1px;font-family:inherit;}
+button:hover{background:#427E93;color:#fff;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<svg id="stage" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 680" font-family="Open Sans, system-ui, sans-serif">
+  <rect x="-400" y="-50" width="2080" height="101.5" fill="#CC0000"/>
+  <text x="20" y="35.5" font-size="34.5" fill="#ffffff">The parallel engine: one core against six workers</text>
+  <g id="left"></g>
+  <g id="right"></g>
+  <text id="closer" x="40" y="664" font-size="18.5" font-weight="600" fill="#B40000" opacity="0"></text>
+</svg>
+</div>
+<button onclick="replay()">Replay</button>
+<script>
+"use strict";
+const NS = "http://www.w3.org/2000/svg";
+const INK = "#222", MUTED = "#737373", LINE = "#d9dde2", DOT = "#c9ced6", DARK = "#990000";
+const WC = ["#427E93", "#008473", "#D14905", "#6F7D1C", "#4156A1", "#8a5a00"];   // six workers, deck palette
+const NW = WC.length;
+function mk(tag, a, parent) { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, String(a[k])); (parent || document.getElementById("stage")).appendChild(e); return e; }
+// ---------------------------------------------------------------- the tree: irregular, deterministic
+let seed = 20260909; function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+const LEVELS = 7;
+const nodes = [{ id: 0, lvl: 0, parent: -1, dur: 0, children: [] }];
+(function grow() {
+  let frontier = [nodes[0]];
+  for (let l = 1; l <= LEVELS; l++) {
+    const next = [];
+    for (const n of frontier) {
+      // the trunk always continues; forks open as the transient unfolds, some branches end early
+      let k;
+      if (l === 1) k = 1; else if (l === 2) k = 2; else { const r = rnd(); k = r < 0.14 ? 0 : r < 0.56 ? 1 : r < 0.93 ? 2 : 3; }
+      if (l === LEVELS) k = Math.min(k, 1);
+      for (let i = 0; i < k; i++) {
+        const dur = [0.7, 1.0, 1.0, 1.3][Math.floor(rnd() * 4)];
+        const c = { id: nodes.length, lvl: l, parent: n.id, dur, children: [] }; nodes.push(c); n.children.push(c); next.push(c);
+      }
+    }
+    frontier = next; if (!frontier.length) break;
+  }
+})();
+const edges = nodes.slice(1);                       // every node but the root is one segment of a transient
+// horizontal position is transient time: a node sits at the sum of the durations above it
+(function clock(n, t0) { n.t = t0; n.children.forEach(c => clock(c, t0 + c.dur)); })(nodes[0], 0);
+const T_MAX = Math.max(...nodes.map(n => n.t));
+// vertical layout: leaves spaced in depth-first order, parents centered on their children
+const leaves = nodes.filter(n => !n.children.length);
+let leafRow = 0;
+(function place(n) { if (!n.children.length) { n.row = leafRow++; return; } n.children.forEach(place); n.row = n.children.reduce((s, c) => s + c.row, 0) / n.children.length; })(nodes[0]);
+// ---------------------------------------------------------------- sequences: a transient runs from its branch point to its end
+// At a branch point the running transient keeps going down the first child; every other child is a
+// NEW sequence, restarted from the state saved there. So a sequence is a chain of segments, and it is
+// the unit of work: one core runs one sequence at a time to its end, a worker does the same.
+const seqs = [];
+function buildSeq(first) {
+  const s = { id: seqs.length, edges: [], forks: [], dur: 0 }; seqs.push(s);
+  let n = first;
+  for (;;) {
+    n.seq = s; n.offset = s.dur; s.edges.push(n); s.dur += n.dur;
+    for (let i = 1; i < n.children.length; i++) s.forks.push({ at: s.dur, seq: buildSeq(n.children[i]) });
+    if (!n.children.length) break;
+    n = n.children[0];
+  }
+  return s;
+}
+nodes[0].children.forEach(buildSeq);
+// ---------------------------------------------------------------- schedules: one core, and the server with six workers
+function schedule(nWorkers, handoff) {
+  const free = Array(nWorkers).fill(0); const plan = new Map();
+  const pending = nodes[0].children.map(c => ({ seq: c.seq, avail: 0 }));
+  while (pending.length) {
+    // first come, first served: the earliest-created sequence goes to the earliest-free worker
+    pending.sort((a, b) => a.avail - b.avail || a.seq.id - b.seq.id);
+    const { seq, avail } = pending.shift(); let w = 0; for (let i = 1; i < nWorkers; i++) if (free[i] < free[w]) w = i;
+    const start = Math.max(free[w], avail), end = start + seq.dur;
+    plan.set(seq.id, { avail, start, end, w }); free[w] = end;
+    for (const f of seq.forks) pending.push({ seq: f.seq, avail: start + f.at + handoff });
+  }
+  let wall = 0; for (const v of plan.values()) wall = Math.max(wall, v.end);
+  return { plan, wall };
+}
+const SER = schedule(1, 0.04), PAR = schedule(NW, 0.12);
+const K = 0.26;                                     // seconds per time unit: six workers finish in about four seconds, one core in about seventeen
+const T_END = SER.wall * K + 1.2;
+// ---------------------------------------------------------------- drawing
+const PANEL = { w: 580, x: [40, 660], top: 140, bottom: 500 };
+const X = (px, tt) => px + 26 + tt * ((PANEL.w - 40) / T_MAX);
+const Y = row => PANEL.top + (leaves.length > 1 ? row / (leaves.length - 1) : 0.5) * (PANEL.bottom - PANEL.top);
+function buildPanel(g, px, title, sub, sched, colorOf, isServer) {
+  mk("text", { x: px, y: 102, "font-size": 17, "font-weight": 600, fill: INK }, g).textContent = title;
+  mk("text", { x: px, y: 121, "font-size": 12.5, fill: MUTED }, g).textContent = sub;
+  const el = {};
+  for (const n of edges) {
+    const p = nodes[n.parent]; const x1 = X(px, p.t), y1 = Y(p.row), x2 = X(px, n.t), y2 = Y(n.row);
+    const L = Math.hypot(x2 - x1, y2 - y1);
+    const back = mk("line", { x1, y1, x2, y2, stroke: LINE, "stroke-width": 2.2, "stroke-linecap": "round" }, g);
+    const fore = mk("line", { x1, y1, x2, y2, stroke: colorOf(sched.plan.get(n.seq.id).w), "stroke-width": 3.4, "stroke-linecap": "round", "stroke-dasharray": `0 ${L + 4}` }, g);
+    const dot = mk("circle", { cx: x2, cy: y2, r: n.children.length ? 4.5 : 3.6, fill: DOT, opacity: 0.9 }, g);
+    el[n.id] = { back, fore, dot, L, x1, y1, x2, y2 };
+  }
+  // the root: the initiating event, the same on both sides
+  const rx = X(px, 0), ry = Y(nodes[0].row);
+  mk("circle", { cx: rx, cy: ry, r: 9, fill: DARK }, g);
+  mk("text", { x: rx, y: ry + 26, "font-size": 11, fill: MUTED, "text-anchor": "middle" }, g).textContent = "initiating event";
+  // wall-clock bar, scaled to the serial wall so the two bars compare
+  const by = 540;
+  mk("text", { x: px, y: by - 8, "font-size": 12, fill: MUTED }, g).textContent = "wall time, in units of one plain segment";
+  mk("rect", { x: px, y: by, width: PANEL.w, height: 12, rx: 3, fill: "#eef0f2" }, g);
+  const bar = mk("rect", { x: px, y: by, width: 0, height: 12, rx: 3, fill: isServer ? "#427E93" : "#555" }, g);
+  const wallT = mk("text", { x: px + PANEL.w, y: by - 8, "font-size": 12.5, "font-weight": 700, fill: INK, "text-anchor": "end" }, g);
+  const doneT = mk("text", { x: px, y: by + 34, "font-size": 12.5, fill: INK }, g);
+  return { el, bar, wallT, doneT, by };
+}
+const gL = document.getElementById("left"), gR = document.getElementById("right");
+const LP = buildPanel(gL, PANEL.x[0], "one core, in series", "one transient at a time, run to its end; every new branch waits its turn", SER, () => "#4a4a4a", false);
+const RP = buildPanel(gR, PANEL.x[1], "the parallel engine: a server and six workers", "past a branch point the worker keeps its transient; the new branch goes to a free worker or waits", PAR, w => WC[w], true);
+// worker badges and the readouts of the right panel: the server's queue, the busy count
+const badges = WC.map((c, i) => {
+  const x = PANEL.x[1] + i * 58, y = RP.by + 62;
+  const ring = mk("circle", { cx: x + 8, cy: y - 4, r: 7, fill: "none", stroke: c, "stroke-width": 2 }, gR);
+  const fill = mk("circle", { cx: x + 8, cy: y - 4, r: 4, fill: c, opacity: 0 }, gR);
+  mk("text", { x: x + 22, y, "font-size": 12, fill: c, "font-weight": 600 }, gR).textContent = "W" + (i + 1);
+  return { ring, fill };
+});
+const occT = mk("text", { x: PANEL.x[1] + PANEL.w, y: RP.by + 62, "font-size": 12, fill: MUTED, "text-anchor": "end" }, gR);
+const queueT = mk("text", { x: PANEL.x[1] + PANEL.w, y: RP.by + 34, "font-size": 12.5, fill: INK, "text-anchor": "end" }, gR);
+mk("text", { x: PANEL.x[0], y: LP.by + 62, "font-size": 12, fill: MUTED }, gL).textContent = "total work is the same on both sides: the sum of every sequence's length";
+const closer = document.getElementById("closer");
+// cursors: one for the core, one per worker
+const curL = mk("circle", { r: 5.5, fill: "#4a4a4a", opacity: 0 }, gL);
+const curR = WC.map(c => mk("circle", { r: 5.5, fill: c, opacity: 0 }, gR));
+function renderPanel(P, sched, tu, cursors, cursorOf) {
+  let done = 0, queued = 0; const busy = new Set();
+  for (const s of seqs) {
+    const pl = sched.plan.get(s.id);
+    if (tu >= pl.end) done++; else if (tu >= pl.avail && tu < pl.start) queued++;
+    const run = tu >= pl.start && tu < pl.end, elapsed = tu - pl.start;
+    if (run) busy.add(pl.w);
+    for (const n of s.edges) {
+      const e = P.el[n.id];
+      if (tu >= pl.end || (run && elapsed >= n.offset + n.dur)) { e.fore.setAttribute("stroke-dasharray", `${e.L} ${e.L + 4}`); e.dot.setAttribute("fill", n.children.length ? "#555" : e.fore.getAttribute("stroke")); }
+      else if (run && elapsed > n.offset) {
+        const f = (elapsed - n.offset) / n.dur; e.fore.setAttribute("stroke-dasharray", `${f * e.L} ${e.L + 4}`); e.dot.setAttribute("fill", DOT);
+        const c = cursorOf(pl.w); c.setAttribute("cx", e.x1 + (e.x2 - e.x1) * f); c.setAttribute("cy", e.y1 + (e.y2 - e.y1) * f); c.setAttribute("opacity", 1);
+      } else { e.fore.setAttribute("stroke-dasharray", `0 ${e.L + 4}`); e.dot.setAttribute("fill", DOT); }
+    }
+  }
+  cursors.forEach((c, i) => { if (!busy.has(i)) c.setAttribute("opacity", 0); });
+  const tw = Math.min(tu, sched.wall);
+  P.bar.setAttribute("width", PANEL.w * tw / SER.wall);
+  P.wallT.textContent = (tu >= sched.wall ? "done at " : "") + tw.toFixed(1) + " units";
+  P.doneT.textContent = `sequences finished: ${done} of ${seqs.length}`;
+  return { busy, queued, done };
+}
+function render(t) {
+  const tu = Math.max(0, (t - 0.6)) / K;
+  renderPanel(LP, SER, tu, [curL], () => curL);
+  const r = renderPanel(RP, PAR, tu, curR, w => curR[w]);
+  badges.forEach((b, i) => { const on = r.busy.has(i); b.fill.setAttribute("opacity", on ? 1 : 0); b.ring.setAttribute("stroke-width", on ? 2.6 : 1.4); });
+  const parDone = tu >= PAR.wall;
+  occT.textContent = parDone ? "all six idle: nothing left to run" : `busy workers: ${r.busy.size} of ${NW}`;
+  queueT.textContent = parDone ? "server queue empty" : `server queue: ${r.queued} waiting`;
+  const serDone = tu >= SER.wall;
+  closer.setAttribute("opacity", serDone ? 1 : (parDone ? 0.85 : 0));
+  closer.textContent = serDone
+    ? `Same work, a ${(SER.wall / PAR.wall).toFixed(1)}× shorter wall. What is left is the tree's shape: one branch at the start, few at the end, so workers idle.`
+    : `Six workers are done; the one core is still working. The badges idled at the start, one branch wide, and again at the end.`;
+}
+// ---------------------------------------------------------------- driver: play once, freeze, Replay
+let t = 0, playing = true, last = null;
+function frame(ts) { if (last == null) last = ts; const dt = Math.min(0.05, (ts - last) / 1000); last = ts;
+  if (playing) { t += dt; if (t >= T_END) { t = T_END; playing = false; } }
+  render(t); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+function replay() { t = 0; playing = true; last = null; }
+window.__anim = { T: T_END, seek(x) { playing = false; t = Math.max(0, Math.min(T_END, x)); render(t); } };
+const qs = new URLSearchParams(location.search); if (qs.get("t")) { t = parseFloat(qs.get("t")) || 0; }
+</script>
+
+<script>
+// deck bridge: inside the reveal deck, let the presenter move the deck from within
+// this animation. PageDown/PageUp (clickers), N/P and Esc go to reveal's postMessage
+// API; this page has no arrow-key controls of its own, so arrows forward immediately.
+// Outside the deck this is inert.
+(() => {
+  if (window.parent === window) return;
+  const send = m => window.parent.postMessage(JSON.stringify({ method: m, args: [] }), "*");
+  window.__deck = { next: () => send("next"), prev: () => send("prev") };
+  addEventListener("keydown", e => {
+    if (e.code === "PageDown" || e.code === "ArrowRight" || (e.key === "n" && !e.metaKey && !e.ctrlKey)) { e.preventDefault(); e.stopImmediatePropagation(); send("next"); }
+    else if (e.code === "PageUp" || e.code === "ArrowLeft" || (e.key === "p" && !e.metaKey && !e.ctrlKey)) { e.preventDefault(); e.stopImmediatePropagation(); send("prev"); }
+    else if (e.code === "Escape") { send("toggleOverview"); }
+  }, true);
+})();
+</script>
+
+<script>
+// deck fit: inside the reveal deck, lay this page out as a fixed 1280x720 slide and
+// scale it like reveal scales its slides.
+(() => {
+  if (window.parent === window) return;
+  const D = { w: 1280, h: 720 };
+  const w = document.querySelector(".wrap");
+  if (!w) return;
+  document.documentElement.style.overflow = "hidden";
+  document.body.style.overflow = "hidden";
+  Object.assign(w.style, { width: D.w + "px", maxWidth: "none", height: D.h + "px",
+    margin: "0", position: "absolute", left: "50%", top: "50%",
+    padding: "10px 0 0", boxSizing: "border-box", justifyContent: "flex-start" });
+  const stage = document.getElementById("stage");
+  if (stage) { stage.style.width = "1280px"; stage.style.height = "680px"; stage.style.margin = "0 auto"; }
+  // On a stage taller than 16:9 (the deck's fit-to-screen, on a laptop) everything under the
+  // title band moves down by half of the extra height, as the deck's own slides do. The band,
+  // the svg's first two children, stays where it is.
+  function lower(dy) { if (!stage) return; const on = dy > 0.5; stage.style.transform = on ? `translateY(${dy}px)` : "";
+    for (const el of Array.from(stage.children).slice(0, 2)) { if (on) el.setAttribute("transform", `translate(0,${-dy})`); else el.removeAttribute("transform"); } }
+  // place the box exactly where the deck places its slide box (read from the parent page;
+  // same origin), so bands and text line up at any window shape; fall back to centering
+  function fit() { let r = null; try { const el = window.parent.document.querySelector(".reveal .slides"); if (el) r = el.getBoundingClientRect(); } catch (e) {}
+    if (r && r.width > 100) { const k = r.width / D.w; Object.assign(w.style, { left: "0", top: "0", transformOrigin: "0 0", transform: `translate(${r.left}px,${r.top}px) scale(${k})` }); lower(Math.max(0, r.height / k - D.h) / 2); return; }
+    const s = Math.min(innerWidth / D.w, innerHeight / D.h) * 0.96;
+    Object.assign(w.style, { left: "50%", top: "50%", transformOrigin: "50% 50%", transform: `translate(-50%,-50%) scale(${s})` }); }
+  addEventListener("resize", fit); fit();
+})();
+</script>
+
+<script>
+// band balance (2026-11-17): inside the deck the tab strip covers the top of this page's red
+// band, by an amount that depends on the window. The deck publishes the strip's lower edge as
+// --band-top (stage px below the slide's top) and places its own titles from it; the same
+// shift is applied here to the band and its title. 5.46 is the distance both were drawn for.
+(() => {
+  if (window.parent === window) return;
+  const band = document.querySelector("svg#stage > rect"), title = document.querySelector("svg#stage > text");
+  if (!band || !title) return;
+  const H0 = parseFloat(band.getAttribute("height")), Y0 = parseFloat(title.getAttribute("y"));
+  function apply() {
+    let d = 0;
+    try {
+      const v = parseFloat(window.parent.document.documentElement.style.getPropertyValue("--band-top"));
+      if (!isNaN(v)) d = v - 5.46;
+    } catch (e) {}
+    band.setAttribute("height", (H0 + d).toFixed(2));
+    title.setAttribute("y", (Y0 + d).toFixed(2));
+  }
+  addEventListener("resize", apply);
+  addEventListener("load", apply);
+  apply();
+})();
+</script>
+</body>
+</html>

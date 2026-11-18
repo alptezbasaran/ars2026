@@ -1,0 +1,40 @@
+\documentclass[tikz,border=4pt]{standalone}
+\input{preamble}
+\begin{document}
+\begin{tikzpicture}[font=\scriptsize,
+    hd/.style={font=\scriptsize\bfseries, text=black!60},
+    es/.style={rectangle, draw, rounded corners, font=\scriptsize,
+               inner sep=2.5pt, align=center},
+    ok/.style={es, draw=MediumGreen, fill=MediumGreen!20},
+    cd/.style={es, draw=red300, fill=red300!15},
+    deg/.style={es, draw=HuntYellow!80!black, fill=HuntYellow!35},
+    br/.style={thick, black!70},
+    pl/.style={font=\tiny, text=black!55}]
+  \node[hd] at (0.6,0.6)  {initiating event};
+  \node[hd] at (4.0,0.6)  {safety system A};
+  \node[hd] at (7.4,0.6)  {safety system B};
+  \node[hd] at (10.9,0.6) {end state $\cdot$ probability};
+  \draw[br] (0,0) -- (2.6,0);
+  \node[pl, above] at (1.2,0.02) {frequency $\lambda$};
+  \draw[br] (2.6,0) -- (6.0,0);
+  \node[pl, above] at (4.2,0.02) {A works ($1-p_A$)};
+  \draw[br] (2.6,0) -- (2.6,-1.7) -- (6.0,-1.7);
+  \node[pl, above] at (4.4,-1.68) {A fails ($p_A$)};
+  \draw[br] (6.0,0) -- (9.4,0);
+  \node[pl, above] at (7.6,0.02) {B works};
+  \draw[br] (6.0,0) -- (6.0,-0.85) -- (9.4,-0.85);
+  \node[pl, above] at (7.7,-0.83) {B fails};
+  \draw[br] (6.0,-1.7) -- (9.4,-1.7);
+  \node[pl, above] at (7.6,-1.68) {B works};
+  \draw[br] (6.0,-1.7) -- (6.0,-2.55) -- (9.4,-2.55);
+  \node[pl, above] at (7.7,-2.53) {B fails};
+  \node[ok,  anchor=west] at (9.55,0)     {safe};
+  \node[deg, anchor=west] at (9.55,-0.85) {degraded};
+  \node[deg, anchor=west] at (9.55,-1.7)  {degraded};
+  \node[cd,  anchor=west] at (9.55,-2.55) {core damage};
+  \node[pl, anchor=west] at (11.35,0)     {$\lambda(1{-}p_A)(1{-}p_B)$};
+  \node[pl, anchor=west] at (11.55,-0.85) {$\lambda(1{-}p_A)\,p_B$};
+  \node[pl, anchor=west] at (11.55,-1.7)  {$\lambda\,p_A(1{-}p_B)$};
+  \node[pl, anchor=west] at (11.75,-2.55) {$\lambda\,p_A\,p_B$};
+\end{tikzpicture}
+\end{document}

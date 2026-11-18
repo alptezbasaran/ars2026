@@ -1,0 +1,100 @@
+## Move 1: physics behind a RESTful interface {#solver-interface data-section="2"}
+
+![](figs/arch_moves.svg){fig-align="center" width="97%"}
+
+::: {style="font-size:0.92em; margin-top:0.35em;"}
+`checkpoint()` returns the solver's complete state as an opaque buffer;
+`restore()` rebuilds it, and the transient continues as if it had never been
+interrupted. [For RELAP5 this meant replacing the disk-based restart with an
+in-memory one.]{style="color:#B40000;"}
+:::
+
+::: {.notes}
+Move one. On the left is the engine as it was: the PRA core and RELAP5
+compiled into one process. On the right is the same core, but every access to
+the physics now goes through a solver interface, and the core asks for exactly
+five things: advance time, apply an intervention, report state, checkpoint,
+and restore.
+
+There are two implementations. RELAP5 still runs in process, which keeps the
+validated coupling. And a REST client drives any external solver over HTTP:
+that is the RESTful interface.
+
+The checkpoint is the key element. It returns the complete state as an opaque
+buffer, and restore rebuilds it, so the transient continues as if never
+interrupted. For RELAP5, that meant replacing the disk-based restart with an
+in-memory one.
+:::
+
+## The whole interface: six endpoints {#rest-contract data-section="2"}
+
+:::: {.columns}
+::: {.column width="57%"}
+::: {style="font-size:0.94em;"}
+| **Endpoint** | **Purpose** |
+|:-------------------------------|:------------------------------------------|
+| `POST /sessions` | create a solver session, fresh or from a restart |
+| `POST /sessions/:id/advance` | integrate forward by *dt*; return the full state |
+| `POST /sessions/:id/intervene` | apply operator actions as index and value pairs |
+| `POST /sessions/:id/checkpoint` | snapshot the state; return a checkpoint id |
+| `POST /sessions/:id/restore` | rewind the session to a checkpoint |
+| `DELETE /sessions/:id` | destroy the session, free its resources |
+:::
+:::
+::: {.column width="43%"}
+```{=html}
+<div class="facts">
+  <div class="fact"><b>A solver is a service that holds sessions</b><span>each one an independent solver instance with its full state</span></div>
+  <div class="fact"><b>Every advance returns five generic arrays</b><span>volumes, junctions, control variables, variable trips, logical trips</span></div>
+  <div class="fact"><b>The mapper lives on the solver side</b><span>it packs native state into the arrays; the engine never parses a domain field</span></div>
+  <div class="fact"><b>Trips fire once and latch</b><span>pivotal events come from trip firings, so branching semantics travel with the contract</span></div>
+</div>
+```
+:::
+::::
+
+::: {style="font-size:0.8em; margin-top:0.5em;"}
+[Coupling a new code means implementing six endpoints: not merging code, not
+matching a compiler, not sharing a process.]{style="color:#B40000;"}
+:::
+
+::: {.slideref}
+Paths abbreviated; all routes live under `/api/v1`. Two read-only routes complete the contract: the current state without advancing time, and a liveness check.
+:::
+
+::: {.notes}
+This table is the whole interface, which the paper calls the solver contract.
+The solver is a service that holds sessions. Six endpoints change state, and
+two only read.
+
+The data format is deliberately generic. Every advance returns five arrays:
+volumes, junctions, control variables, and two kinds of trips. A mapper on the
+solver side packs the solver's own state into those arrays, so the engine
+never parses a plant-specific field.
+
+Trips fire once and latch, and the engine derives pivotal events from them, so
+the rules for branching are part of the interface.
+
+Coupling a new code means implementing these six endpoints: not merging code,
+not matching a compiler, not sharing a process.
+:::
+
+## The interface in action {#anim-coupling data-section="2" background-iframe="assets/anim/coupling-animation.html" background-interactive="true" visibility="uncounted" .no-band}
+
+::: {.notes}
+[Animation, about thirty-eight seconds. It starts by itself and stops on its
+last picture; the slide PDF shows that picture only.]
+
+Here is the interface in action, as one sequence. On the left, the engine; in
+the middle, the six verbs; on the right, an advanced reactor simulator in
+RELAP5's place: for example SAM, SAS4A/SASSYS-1, RELAP5-3D, MELCOR, or your
+own code. None of these is coupled yet; the point is that the engine does not
+care which.
+
+A trip fires inside an advance response and becomes a pivotal event. The
+checkpoint comes back as a token that the engine never looks inside, and the
+restore takes the other branch.
+
+At the bottom right are the two services that use this interface today: a PWR
+and a space reactor.
+:::

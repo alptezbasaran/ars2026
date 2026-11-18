@@ -1,0 +1,537 @@
+<meta charset="utf-8">
+<title>ADS DET: animated walkthrough</title>
+<style>
+@import url("../fonts/open-sans.css");
+  :root{
+    --bg:#faf7f6; --panel:#ffffff; --ink:#231f1e; --mut:#7c7370; --rule:#e8e0dd;
+    --red0:#a31226; --red1:#d22c3c; --red2:#ee5a5a; --glow:rgba(210,44,60,.18);
+    --w1:#0072B2; --w2:#009E73; --w3:#E69F00;
+    --safe:#0a7d4d; --deg:#b8860b; --cd:#a31226;
+    --chip:#f3ecea; --chipedge:#c9b8b3; --buf:#bfb4b0;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --serif:Georgia,"Iowan Old Style","Palatino Linotype",serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#191415; --panel:#211b1c; --ink:#ece7e5; --mut:#a1968f;
+      --rule:#372e2f; --red0:#e0405c; --red1:#e85f6d; --red2:#f28a8a;
+      --glow:rgba(232,95,109,.22); --w1:#4aa3dd; --w2:#2ec49a; --w3:#f0b13f;
+      --safe:#3ecb8b; --deg:#d9a62e; --cd:#e8556a;
+      --chip:#2a2223; --chipedge:#584a4b; --buf:#6b5f5c; }
+  }
+  :root[data-theme="dark"]{ --bg:#191415; --panel:#211b1c; --ink:#ece7e5;
+    --mut:#a1968f; --rule:#372e2f; --red0:#e0405c; --red1:#e85f6d;
+    --red2:#f28a8a; --glow:rgba(232,95,109,.22); --w1:#4aa3dd; --w2:#2ec49a;
+    --w3:#f0b13f; --safe:#3ecb8b; --deg:#d9a62e; --cd:#e8556a;
+    --chip:#2a2223; --chipedge:#584a4b; --buf:#6b5f5c; }
+  :root[data-theme="light"]{ --bg:#faf7f6; --panel:#ffffff; --ink:#231f1e;
+    --mut:#7c7370; --rule:#e8e0dd; --red0:#a31226; --red1:#d22c3c;
+    --red2:#ee5a5a; --glow:rgba(210,44,60,.18); --w1:#0072B2; --w2:#009E73;
+    --w3:#E69F00; --safe:#0a7d4d; --deg:#b8860b; --cd:#a31226;
+    --chip:#f3ecea; --chipedge:#c9b8b3; --buf:#bfb4b0; }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+       -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:26px 20px 60px}
+  header{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:baseline;
+         justify-content:space-between;margin-bottom:14px}
+  .eyebrow{font-size:11.5px;font-weight:650;letter-spacing:.14em;
+           text-transform:uppercase;color:var(--red1)}
+  h1{font-family:var(--serif);font-weight:600;font-size:clamp(21px,3.4vw,30px);
+     margin:2px 0 0;letter-spacing:-.01em;text-wrap:balance}
+  .controls{display:flex;gap:8px;align-items:center}
+  button,select{font-family:var(--sans);font-size:13.5px;color:var(--ink);
+     background:var(--panel);border:1px solid var(--chipedge);border-radius:9px;
+     padding:7px 14px;cursor:pointer}
+  button:hover{border-color:var(--red1)}
+  button:focus-visible,select:focus-visible{outline:2px solid var(--red1);outline-offset:2px}
+  #play{min-width:86px;font-weight:650}
+  .stagebox{background:var(--panel);border:1px solid var(--rule);
+            border-radius:16px;padding:8px 8px 2px;overflow:hidden}
+  svg{display:block;width:100%;height:auto}
+  /* deck iframe: keep the caption above the fold at any viewport height */
+  svg#stage{max-height:calc(100vh - 250px)}
+  #progress{height:3px;background:var(--rule);border-radius:2px;margin:2px 10px 8px;
+            overflow:hidden}
+  #progress i{display:block;height:100%;width:0%;background:var(--red1)}
+  .caption{min-height:54px;display:flex;align-items:center;justify-content:center;
+           text-align:center;padding:10px 8px 0}
+  .caption p{margin:0;max-width:none;width:100%;font-size:17px;line-height:1.5;
+             transition:opacity .45s ease}
+  .caption b{color:var(--red1)}
+  .caption p.multi{text-align:left}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 20px;justify-content:center;
+          margin-top:16px;color:var(--mut);font-size:12.5px}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .legend svg{width:22px;height:16px}
+  footer{margin-top:26px;text-align:center;color:var(--mut);font-size:12px;
+         line-height:1.6}
+  .k{font-family:var(--mono);font-size:.92em}
+  @media (prefers-reduced-motion: reduce){ .caption p{transition:none} }
+</style>
+<script>document.documentElement.dataset.theme="light";</script>
+<style>
+  /* deck skin; match the slides-final SimpleDarkBlue template */
+  :root, :root[data-theme="light"]{
+    --bg:#ffffff; --panel:#ffffff; --ink:#1a1a1a; --mut:#666666; --rule:#e5e0de;
+    --red0:#990000; --red1:#cc0000; --red2:#ee5a5a; --glow:rgba(204,0,0,.16);
+    --safe:#008473; --deg:#b8860b; --cd:#b40000;
+    --chip:#f5f1ef; --chipedge:#cfc3bf; --buf:#bfb4b0;
+    --sans:"Open Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  h1{font-family:var(--sans);font-weight:300;letter-spacing:-.005em}
+  .eyebrow{color:#cc0000}
+  footer{display:none}
+</style>
+
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>How a dynamic event tree is built</h1>
+    </div>
+    <div class="controls">
+      <button id="play" aria-label="Play or pause the animation">Pause</button>
+      <button id="restart" aria-label="Restart the animation">Restart</button>
+      <select id="speed" aria-label="Playback speed">
+        <option value="0.6">0.6×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+  </header>
+
+  <div class="stagebox">
+    <svg id="stage" viewBox="0 0 1000 560" role="img"
+         aria-label="Animated dynamic event tree. At each pivotal event the clock slows: the state is saved and a branch spawns with its conditional probability. Sequences advance in parallel to their own end states, ending on the whole tree with its end states and one pivotal-event record.">
+      <defs>
+        <filter id="soft" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="7"/>
+        </filter>
+      </defs>
+      <g id="axis"></g>
+      <g id="tree"></g>
+      <g id="pulses"></g>
+      <g id="chrome"></g>
+      <g id="flights"></g>
+      <g id="readout"></g>
+    </svg>
+    <div id="progress"><i></i></div>
+  </div>
+
+  <div class="caption"><p id="cap"></p></div>
+
+  <div class="legend" id="legend">
+    <span><svg viewBox="0 0 22 16"><path d="M8 15 V2 L15 4.5 L8 7" fill="currentColor" stroke="currentColor" stroke-linejoin="round"/></svg> pivotal event: state saved, branch spawns</span>
+  </div>
+
+  <footer>Sim time slows at pivotal events so the branching is visible; between forks it is pure physics<br>
+  Tezbasaran &amp; Diaconeasa · Probabilistic Risk Assessment Group · NC State Nuclear Engineering</footer>
+</div>
+
+<script>
+(() => {
+"use strict";
+const S = document.getElementById("stage");
+const NS = "http://www.w3.org/2000/svg";
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+// ---------- scene data -------------------------------------------------
+const R = 78;                    // px per unit of SIM time
+const RIN = 0.04;                // sim rate inside a protocol window
+const WA_BRANCH = 2.6;   // slow-motion window per pivotal event (wall s)
+const CHIP = {x:500, y:52};
+const SEQ = [
+  {id:"S0", gen:0, w:1, pts:[[70,300],[920,300]]},
+  {id:"S1", gen:1, w:2, pts:[[300,300],[390,190],[660,190]]},
+  {id:"S2", gen:1, w:3, pts:[[520,300],[610,410],[840,410]]},
+  {id:"S3", gen:2, w:2, pts:[[560,190],[640,120],[930,120]]},
+  // extras (2026-08-30): a richer, more realistic run so the parallelism is
+  // visible; they run alongside the logo core and fade before the logo holds
+  {id:"S4", gen:1, w:2, extra:true, pts:[[180,300],[260,380],[520,380]]},
+  {id:"S6", gen:2, w:2, extra:true, pts:[[470,190],[540,250],[700,250]]},
+  {id:"S5", gen:2, w:3, extra:true, pts:[[700,410],[770,470],[930,470]]},
+  {id:"S7", gen:1, w:2, extra:true, pts:[[760,300],[830,360],[930,360]]},
+];
+const seqBy = Object.fromEntries(SEQ.map(s=>[s.id,s]));
+for (const s of SEQ){
+  s.cum=[0];
+  for(let i=1;i<s.pts.length;i++){
+    const dx=s.pts[i][0]-s.pts[i-1][0], dy=s.pts[i][1]-s.pts[i-1][1];
+    s.cum.push(s.cum[i-1]+Math.hypot(dx,dy));
+  }
+  s.L=s.cum[s.cum.length-1];
+}
+const pAt=(s,d)=>{ d=Math.max(0,Math.min(s.L,d));
+  let i=1; while(d>s.cum[i]) i++;
+  const f=(d-s.cum[i-1])/(s.cum[i]-s.cum[i-1]);
+  return [s.pts[i-1][0]+f*(s.pts[i][0]-s.pts[i-1][0]),
+          s.pts[i-1][1]+f*(s.pts[i][1]-s.pts[i-1][1])];
+};
+const distTo=(s,pt)=>{
+  for(let i=1;i<s.pts.length;i++){
+    const a=s.pts[i-1], b=s.pts[i];
+    const vx=b[0]-a[0], vy=b[1]-a[1], L2=vx*vx+vy*vy;
+    const f=((pt[0]-a[0])*vx+(pt[1]-a[1])*vy)/L2;
+    if(f>=-1e-6&&f<=1+1e-6){
+      const px=a[0]+f*vx-pt[0], py=a[1]+f*vy-pt[1];
+      if(Math.hypot(px,py)<0.8) return s.cum[i-1]+f*Math.sqrt(L2);
+    }
+  }
+  return 0;
+};
+
+// (worker docks removed; pure DET view)
+
+// Events, in sim order. "transfer": a free peer receives the branch at
+// branching time (producer keeps running its own sequence). "selfrun": all
+// workers are busy at branching time; the task PARKS (queue + store) until
+// the producer finishes its own sequence, then self-runs it. One sequence
+// per worker at any moment.
+const EV = [
+  {node:[180,300], parent:"S0", child:"S4", kind:"selfrun",  w:2, nocard:false},
+  {node:[300,300], parent:"S0", child:"S1", kind:"transfer", w:2, nocard:false},
+  {node:[520,300], parent:"S0", child:"S2", kind:"transfer", w:3, nocard:false},
+  {node:[470,190], parent:"S1", child:"S6", kind:"transfer", w:2, nocard:true},
+  {node:[560,190], parent:"S1", child:"S3", kind:"selfrun",  w:2, nocard:true},
+  {node:[700,410], parent:"S2", child:"S5", kind:"transfer", w:3, nocard:true},
+  {node:[760,300], parent:"S0", child:"S7", kind:"selfrun",  w:2, nocard:true},
+];
+// ---- time warp: wall <-> sim ------------------------------------------
+seqBy.S0.t0s = 0;
+const SEGS=[]; let wall=0, sim=0;
+const addWindow=(simT,len)=>{
+  SEGS.push({w0:wall, s0:sim, r:1});
+  wall += (simT - sim); sim = simT;
+  const w0=wall;
+  SEGS.push({w0:wall, s0:sim, r:RIN});
+  wall += len; sim += RIN*len;
+  return {w0, wEnd:wall, simEnd:sim};
+};
+for (const e of EV){
+  e.simT = seqBy[e.parent].t0s + distTo(seqBy[e.parent], e.node)/R;
+  const A=addWindow(e.simT, WA_BRANCH);
+  e.wA0=A.w0; e.wAend=A.wEnd;
+  seqBy[e.child].t0s = A.simEnd;            // child starts as speed resumes
+}
+SEGS.push({w0:wall, s0:sim, r:1});
+for (const s of SEQ) s.t1s = s.t0s + s.L/R;
+const simEnd = Math.max(...SEQ.map(s=>s.t1s));
+const wallOf = st => { let g0=SEGS[0];
+  for(const g of SEGS){ if(g.s0<=st) g0=g; else break; }
+  return g0.w0 + (st-g0.s0)/g0.r; };
+const simOf = t => { let g0=SEGS[0];
+  for(const g of SEGS){ if(g.w0<=t) g0=g; else break; }
+  return g0.s0 + (t-g0.w0)*g0.r; };
+// 2026-09-08: the ending holds the WHOLE tree with its end states (no logo mode) and
+// shows what one pivotal-event record holds, for the first fork (Alp).
+const T_FULL = wallOf(simEnd) + 0.8, T_END = T_FULL + 7.0;
+
+const ENDS = [
+  {s:"S1", state:"cd",  glyph:"✕", label:"core damage"},
+  {s:"S0", state:"safe",glyph:"✓", label:"safe"},
+  {s:"S2", state:"deg", glyph:"!", label:"degraded"},
+  {s:"S3", state:"safe",glyph:"✓", label:"safe"},
+  {s:"S4", state:"deg", glyph:"!", label:""},
+  {s:"S6", state:"safe",glyph:"✓", label:""},
+  {s:"S5", state:"deg", glyph:"!", label:""},
+  {s:"S7", state:"safe",glyph:"✓", label:""},
+];
+const E0=EV[0], E1=EV[2], E2=EV[4];
+const CAPS = [
+  [0.15, E0.wA0, "Plant physics advances step by step: the engine calls <b class='k'>advance(dt)</b>; the solver returns the full plant state."],
+  [E0.wA0, E0.wAend+0.3, "A <b>pivotal event</b>, in slow motion: the state is <b>saved</b>, and a new branch <b>spawns</b>, carrying its conditional probability."],
+  [E0.wAend+0.3, E1.wA0, "Speed resumes: sequences advance <b>in parallel</b>, each a <b>full transient</b> in its own right."],
+  [E1.wA0, E1.wAend+0.3, "The <b>same discipline</b> at every pivotal event: save the state, spawn the admissible branch."],
+  [E1.wAend+0.3, E2.wA0, "Five sequences in flight: the tree grows as the physics <b>discovers</b> forks."],
+  [E2.wA0, E2.wAend+0.3, "Forks deeper in the tree: branches of branches, each from an exactly saved state."],
+  [E2.wAend+0.3, T_FULL, "Eight sequences run to their own <b>end states</b>, at their own times: safe, degraded, core damage."],
+  [T_FULL, T_END + 1, "The tree is the <b>output</b>. Every pivotal event is a <b>record</b>: time, saved state, trigger, each alternative with its probability."],
+];
+const STEPS_A = e => [
+  [0.30, `1  trip fires → pivotal event`],
+  [1.05, `2  state saved: the full transient, checkpointed`],
+  [1.80, `3  branch spawns → conditional probability attached`],
+];
+
+// ---------- build static DOM ------------------------------------------
+const el=(n,at,parent)=>{const x=document.createElementNS(NS,n);
+  for(const k in at) x.setAttribute(k,at[k]); (parent||S).appendChild(x); return x;};
+const G={axis:S.querySelector("#axis"),tree:S.querySelector("#tree"),
+  pulses:S.querySelector("#pulses"),chrome:S.querySelector("#chrome"),
+  flights:S.querySelector("#flights"),readout:S.querySelector("#readout")};
+
+el("line",{x1:70,y1:527,x2:915,y2:527,stroke:"var(--rule)","stroke-width":1.4},G.axis);
+el("path",{d:"M915 527 l-9 -4 v8 z",fill:"var(--rule)"},G.axis);
+const axT=el("text",{x:70,y:548,fill:"var(--mut)","font-size":"13px"},G.axis);
+axT.textContent="simulation time";
+
+el("circle",{cx:70,cy:300,r:20,fill:"var(--glow)",filter:"url(#soft)"},G.tree);
+el("circle",{cx:70,cy:300,r:11,fill:"none",stroke:"var(--red0)","stroke-width":4},G.tree);
+el("circle",{cx:70,cy:300,r:5,fill:"var(--red1)"},G.tree);
+const rootT=el("text",{x:70,y:270,"text-anchor":"middle",fill:"var(--mut)","font-size":"12.5px"},G.chrome);
+rootT.textContent="initiating event";
+
+const genColD=g=>css("--red"+g)||"#a31226";
+for (const s of SEQ){
+  s.path=el("path",{d:"M"+s.pts.map(p=>p.join(" ")).join(" L "),fill:"none",
+    stroke:genColD(s.gen),"stroke-width":s.gen===0?4.5:(s.gen===1?3.2:2.4),
+    "stroke-linecap":"round","stroke-linejoin":"round",
+    "stroke-dasharray":"0 "+(s.L+10)},G.tree);
+  s.dot=el("circle",{r:s.gen===0?5:4,fill:genColD(s.gen),opacity:0},G.tree);
+  s.pulse=[el("circle",{r:2.6,fill:genColD(s.gen),opacity:0},G.pulses),
+           el("circle",{r:2.6,fill:genColD(s.gen),opacity:0},G.pulses)];
+}
+
+// (scheduler chip and worker docks removed; pure DET view)
+
+// per-event elements
+const mkCard=(title,steps,card)=>{
+  el("rect",{x:24,y:92,width:414,height:60+steps.length*19,rx:10,
+    fill:"var(--panel)",stroke:"var(--rule)","stroke-width":1.2,opacity:.97},card);
+  const ttl=el("text",{x:42,y:116,fill:"var(--mut)","font-size":"11px",
+    "letter-spacing":".12em"},card);
+  ttl.textContent=title;
+  return steps.map((st,k)=>{
+    const tx=el("text",{x:42,y:139+k*19,fill:"var(--ink)","font-size":"12.5px",
+      "font-family":"var(--mono)",opacity:0},card);
+    tx.textContent=st[1]; tx.dataset.at=st[0]; return tx;
+  });
+};
+for (const e of EV){
+  e.ring=el("circle",{cx:e.node[0],cy:e.node[1],r:6,fill:"none",
+    stroke:"var(--red1)","stroke-width":2,opacity:0},G.chrome);
+  e.nodeDot=el("circle",{cx:e.node[0],cy:e.node[1],r:5.5,fill:"var(--red0)",opacity:0},G.tree);
+  e.flag=el("g",{opacity:0},G.chrome);
+  el("line",{x1:e.node[0],y1:e.node[1]-6,x2:e.node[0],y2:e.node[1]-26,
+    stroke:"var(--ink)","stroke-width":1.6},e.flag);
+  el("path",{d:`M${e.node[0]} ${e.node[1]-26} l13 4.5 l-13 4.5 z`,
+    fill:"var(--red1)",stroke:"var(--red1)"},e.flag);
+  e.buf=el("g",{opacity:0},G.chrome);
+  for(let j=0;j<3;j++)
+    el("rect",{x:e.node[0]+14,y:e.node[1]+10+j*7,width:26,height:5,rx:1.2,
+      fill:"var(--panel)",stroke:"var(--ink)","stroke-width":1},e.buf);
+  e.cardA=el("g",{opacity:0},G.readout);
+  e.linesA=mkCard("AT THE PIVOTAL EVENT",STEPS_A(e),e.cardA);
+}
+const stCol={safe:"--safe",deg:"--deg",cd:"--cd"};
+for (const en of ENDS){
+  const s=seqBy[en.s], p=s.pts[s.pts.length-1];
+  en.g=el("g",{opacity:0},G.chrome);
+  el("circle",{cx:p[0],cy:p[1],r:9,fill:"var(--panel)",
+    stroke:`var(${stCol[en.state]})`,"stroke-width":2.4},en.g);
+  const gt=el("text",{x:p[0],y:p[1]+4,"text-anchor":"middle",
+    fill:`var(${stCol[en.state]})`,"font-size":"11.5px","font-weight":"700"},en.g);
+  gt.textContent=en.glyph;
+  if(en.label){
+    const lt=el("text",{x:p[0]+15,y:p[1]+4,fill:`var(${stCol[en.state]})`,
+      "font-size":"12px"},en.g);
+    lt.textContent=en.label;
+  }
+  // logo tip dots only for the core sequences; extras fade before the hold
+  en.tipdot=seqBy[en.s].extra?null:
+    el("circle",{cx:p[0],cy:p[1],r:4.5,fill:"var(--red2)",opacity:0},G.tree);
+}
+
+// the record card: what one pivotal event holds (from the benchmark fixture's first pivotal-event node)
+const REC = [
+  "t = 1.007 s  ·  parent: node 0",
+  "state saved: the full transient",
+  "trigger: Loss_of_Offsite_Power",
+  "\u00a0\u00a0\u00a0fails   p = 0.5  →  new sequence",
+  "\u00a0\u00a0\u00a0holds   p = 0.5  →  parent continues",
+  "crew at this step: Reactor_Tripped",
+  "\u00a0\u00a0\u00a0decision maker, success p = 0.998",
+];
+const finalCard=el("g",{opacity:0},G.readout);
+el("rect",{x:24,y:34,width:322,height:52+REC.length*19,rx:10,fill:"var(--panel)",
+  stroke:"var(--rule)","stroke-width":1.2,opacity:.97},finalCard);
+const recT=el("text",{x:42,y:58,fill:"var(--mut)","font-size":"11px","letter-spacing":".12em"},finalCard);
+recT.textContent="ONE PIVOTAL EVENT, AS RECORDED";
+REC.forEach((ln,k)=>{ const tx=el("text",{x:42,y:81+k*19,fill:k===2||k===3||k===4?"var(--ink)":"var(--mut)",
+  "font-size":"12px","font-family":"var(--mono)"},finalCard); tx.textContent=ln; });
+el("line",{x1:E0.node[0],y1:52+REC.length*19+36,x2:E0.node[0],y2:E0.node[1]-30,
+  stroke:"var(--red1)","stroke-width":1.4,"stroke-dasharray":"4 4"},finalCard);
+
+// ---------- animation --------------------------------------------------
+const ease=t=>1-Math.pow(1-t,3);
+const pop=t=>t<1?1.06*ease(t):1;
+const bez=(a,c,b,t)=>[ (1-t)*(1-t)*a[0]+2*(1-t)*t*c[0]+t*t*b[0],
+                       (1-t)*(1-t)*a[1]+2*(1-t)*t*c[1]+t*t*b[1] ];
+const fly=(g,a,b,f,lift)=>{
+  const c=[(a[0]+b[0])/2+(lift[0]||0),(a[1]+b[1])/2+(lift[1]||-60)];
+  const p=bez(a,c,b,ease(f));
+  g.setAttribute("transform",`translate(${p[0]},${p[1]})`);
+  return p;
+};
+const capEl=document.getElementById("cap");
+let capIdx=-1, capPend=null;
+function setCap(i){
+  if(i===capIdx) return; capIdx=i;
+  if(window.__capFast){ clearTimeout(capPend);
+    capEl.innerHTML=i>=0?CAPS[i][2]:""; capEl.style.opacity=1; return; }
+  capEl.style.opacity=0;
+  clearTimeout(capPend);
+  capPend=setTimeout(()=>{ capEl.innerHTML=i>=0?CAPS[i][2]:""; capEl.style.opacity=1; },220);
+}
+const genCol=g=>css("--red"+g);
+const between=(u,a,b)=>u>a&&u<b;
+const stepLines=(lines,u)=>lines.forEach((ln,k)=>{
+  const at=parseFloat(ln.dataset.at), on=u>=at;
+  ln.setAttribute("opacity",on?1:0);
+  const latest=on&&(k===lines.length-1||u<parseFloat(lines[k+1].dataset.at));
+  ln.setAttribute("fill",latest?"var(--ink)":"var(--mut)");
+  ln.setAttribute("font-weight",latest?"600":"400");
+});
+const cardO=(t,w0,wEnd)=> t>w0&&t<wEnd+1.0
+  ? Math.min(1,(t-w0)/0.35)*Math.min(1,Math.max(0,(wEnd+1.0-t)/0.55)) : 0;
+
+function render(t){
+  const tau=simOf(t);
+  for(const s of SEQ){
+    const d=Math.max(0,Math.min(s.L,(tau-s.t0s)*R));
+    s.path.setAttribute("stroke-dasharray",`${d} ${s.L+10}`);
+    // zero-length dash + round linecap would paint a dot at the spawn point
+    s.path.setAttribute("opacity",d>0.1?1:0);
+    const active=tau>=s.t0s&&tau<=s.t1s, p=pAt(s,d);
+    s.dot.setAttribute("opacity",tau>=s.t0s?1:0);
+    s.dot.setAttribute("cx",p[0]); s.dot.setAttribute("cy",p[1]);
+    s.pulse.forEach((pu,k)=>{
+      if(!active||d<40){pu.setAttribute("opacity",0);return;}
+      const f=((tau*0.42+k*0.5)%1)*d, q=pAt(s,f);
+      pu.setAttribute("opacity",0.55);
+      pu.setAttribute("cx",q[0]); pu.setAttribute("cy",q[1]);
+    });
+  }
+  for(const e of EV){
+    const uA=t-e.wA0;
+    e.nodeDot.setAttribute("opacity",uA>0?1:0);
+    // trip / flag / ring
+    if(uA>0.3){
+      const k=Math.min(1,(uA-0.3)/0.5);
+      e.flag.setAttribute("opacity",Math.min(1,(uA-0.3)/0.3));
+      e.flag.setAttribute("transform",
+        `translate(${e.node[0]*(1-pop(k))},${e.node[1]*(1-pop(k))}) scale(${pop(k)})`);
+      const rr=6+ease(Math.min(1,(uA-0.3)/1.0))*28;
+      e.ring.setAttribute("r",rr);
+      e.ring.setAttribute("opacity",Math.max(0,0.8-(uA-0.3)*0.7));
+    } else { e.flag.setAttribute("opacity",0); e.ring.setAttribute("opacity",0); }
+    // checkpoint buffer at the node: state saved, branch spawns
+    e.buf.setAttribute("opacity",
+      between(uA,1.05,2.45) ? Math.min(1,(uA-1.05)/0.4)*Math.min(1,(2.45-uA)/0.3) : 0);
+    // readout card (later events skip it: the discipline is shown twice)
+    e.cardA.setAttribute("opacity",e.nocard?0:cardO(t,e.wA0,e.wAend));
+    stepLines(e.linesA,uA);
+  }
+  for(const en of ENDS){
+    const s=seqBy[en.s];
+    en.g.setAttribute("opacity", tau>s.t1s ? Math.min(1,(tau-s.t1s)*2.5) : 0);
+  }
+  let ci=-1;
+  for(let i=0;i<CAPS.length;i++) if(t>=CAPS[i][0]&&t<CAPS[i][1]) ci=i;
+  setCap(ci);
+  finalCard.setAttribute("opacity", t>T_FULL ? Math.min(1,(t-T_FULL)/0.6) : 0);
+  document.querySelector("#progress i").style.width=(100*Math.min(1,t/T_END))+"%";
+}
+
+// ---------- driver ------------------------------------------------------
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+let t=reduce?T_FULL+0.7:0, playing=!reduce, last=null, speed=1;
+const playBtn=document.getElementById("play");
+playBtn.textContent=playing?"Pause":"Play";
+function frame(ts){
+  if(last==null) last=ts;
+  const dt=Math.min(0.05,(ts-last)/1000); last=ts;
+  if(playing){ t+=dt*speed; if(t>=T_END){ t=T_END; playing=false; playBtn.textContent="Play"; } }  // 2026-09-05: freeze on the last frame instead of looping
+  render(t);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+window.__anim={T:T_END,seek(x){ if(playing){playing=false;
+  playBtn.textContent="Play";} window.__capFast=true; t=x; render(x); }};
+playBtn.addEventListener("click",()=>{ if(!playing && t>=T_END){ t=0; } playing=!playing;
+  playBtn.textContent=playing?"Pause":"Play"; });
+document.getElementById("restart").addEventListener("click",()=>{ t=0; playing=true; playBtn.textContent="Pause";
+  if(!playing){ playing=true; playBtn.textContent="Pause"; } });
+document.getElementById("speed").addEventListener("change",e=>{
+  speed=parseFloat(e.target.value); });
+addEventListener("keydown",e=>{
+  if(e.code==="Space"&&!/BUTTON|SELECT/.test(document.activeElement.tagName)){
+    e.preventDefault(); playBtn.click(); }
+  if(e.code==="ArrowRight"&&window.__deck) window.__deck.next();
+  if(e.code==="ArrowLeft"&&window.__deck) window.__deck.prev();
+});
+})();
+</script>
+
+<script>
+// deck bridge: inside the reveal deck, let the presenter move the deck from within this
+// animation. PageDown/PageUp (clickers), N/P, and the on-screen ‹ › buttons go to reveal's
+// postMessage API; the animation's own arrow keys fall through to the deck once the
+// animation is at its end (Right) or its start (Left). Outside the deck this is inert.
+(() => {
+  if (window.parent === window) return;
+  const send = m => window.parent.postMessage(JSON.stringify({ method: m, args: [] }), "*");
+  window.__deck = { next: () => send("next"), prev: () => send("prev") };
+  addEventListener("keydown", e => {
+    if (e.code === "PageDown" || (e.key === "n" && !e.metaKey && !e.ctrlKey)) { e.preventDefault(); e.stopImmediatePropagation(); send("next"); }
+    else if (e.code === "PageUp" || (e.key === "p" && !e.metaKey && !e.ctrlKey)) { e.preventDefault(); e.stopImmediatePropagation(); send("prev"); }
+    else if (e.code === "Escape") { send("toggleOverview"); }
+  }, true);
+  const ctr = document.querySelector(".controls") || document.querySelector("header");
+  if (ctr) {
+    const mk = (t, m, title) => { const b = document.createElement("button"); b.textContent = t; b.title = title; b.className = "deckbtn"; b.setAttribute("aria-label", title); b.addEventListener("click", () => send(m)); return b; };
+    const wrap = document.createElement("span"); wrap.className = "deckbtns"; wrap.append(mk("‹", "prev", "previous slide"), mk("›", "next", "next slide")); ctr.appendChild(wrap);
+    const st = document.createElement("style"); st.textContent = ".deckbtns{margin-left:12px;display:inline-flex;gap:4px}.deckbtn{min-width:36px;padding:7px 11px;font-weight:700}"; document.head.appendChild(st);
+  }
+})();
+</script>
+
+<script>
+// deck fit: inside the reveal deck, lay this page out as a fixed 1280x720 slide and
+// scale it to the viewport the same way reveal scales its slides, so animation
+// slides and regular slides render at the same visual size. Standalone pages keep
+// their responsive layout.
+(() => {
+  if (window.parent === window) return;
+  const D = { w: 1280, h: 720 };
+  const w = document.querySelector(".wrap");
+  if (!w) return;
+  document.documentElement.style.overflow = "hidden";
+  document.body.style.overflow = "hidden";
+  Object.assign(w.style, { width: D.w + "px", maxWidth: "none", height: D.h + "px",
+    margin: "0", position: "absolute", left: "50%", top: "50%",
+    padding: "74px 28px 0", boxSizing: "border-box" });
+  const stage = document.getElementById("stage") || w.querySelector(".stagebox svg");
+  if (stage) { stage.style.height = "480px"; stage.style.maxHeight = "480px";
+    stage.style.width = "auto"; stage.style.margin = "0 auto"; }
+  // the deck's red title band (2026-09-10): the same geometry and size as the slides' h2 band
+  const hd = w.querySelector("header"); if (hd) Object.assign(hd.style, { position: "absolute", left: "-400px", right: "-400px", top: "-40px", height: "101.5px", margin: "0", padding: "0", background: "#CC0000", display: "block", boxSizing: "border-box" });
+  const h1 = w.querySelector("h1"); if (h1) Object.assign(h1.style, { fontSize: "34.5px", fontWeight: "400", fontFamily: "'Open Sans', system-ui, sans-serif", color: "#fff", margin: "0", position: "absolute", left: "420px", top: "56px", lineHeight: "1", letterSpacing: "0", whiteSpace: "nowrap" });
+  for (const el of w.querySelectorAll(".eyebrow, .legend, footer")) el.style.display = "none";
+  const ctl = w.querySelector(".controls"); if (ctl) Object.assign(ctl.style, { position: "fixed", right: "28px", bottom: "12px", zIndex: "5" });
+  // On a stage taller than 16:9 (the deck's fit-to-screen, on a laptop) everything under the
+  // title band moves down by half of the extra height, as the deck's own slides do.
+  // The controls sit at the bottom of the box, so they move down with the content.
+  function lower(dy) { const d = dy > 0.5 ? dy : 0; w.style.paddingTop = (74 + d) + "px"; if (ctl) ctl.style.bottom = (12 - d) + "px"; }
+  // place the box exactly where the deck places its slide box (read from the parent page;
+  // same origin), so bands and text line up at any window shape; fall back to centering
+  function fit() { let r = null; try { const el = window.parent.document.querySelector(".reveal .slides"); if (el) r = el.getBoundingClientRect(); } catch (e) {}
+    if (r && r.width > 100) { const k = r.width / D.w; Object.assign(w.style, { left: "0", top: "0", transformOrigin: "0 0", transform: `translate(${r.left}px,${r.top}px) scale(${k})` }); lower(Math.max(0, r.height / k - D.h) / 2); return; }
+    const s = Math.min(innerWidth / D.w, innerHeight / D.h) * 0.96;
+    Object.assign(w.style, { left: "50%", top: "50%", transformOrigin: "50% 50%", transform: `translate(-50%,-50%) scale(${s})` }); }
+  addEventListener("resize", fit); fit();
+})();
+</script>
+
+<script>
+// captions (2026-09-08, Alp): one line, centered, using the full slide width; a caption
+// that still has to wrap is left-aligned. offsetHeight ignores the deck-fit transform.
+(() => { const p = document.querySelector(".caption p"); if (!p) return;
+  const check = () => { const lh = parseFloat(getComputedStyle(p).lineHeight) || 24;
+    p.classList.toggle("multi", p.offsetHeight > lh * 1.5); };
+  new MutationObserver(check).observe(p, { childList: true, subtree: true, characterData: true });
+  addEventListener("resize", check); check(); })();
+</script>

@@ -1,0 +1,106 @@
+## Move 2: the tree is traversed in parallel {#parallel-design data-section="3"}
+
+::: {style="font-size:0.78em;"}
+A branch exists only when a simulation reaches a pivotal event, so the
+scheduler has to be dynamic.
+:::
+
+![](figs/tikz/distributed-workflow.svg){fig-align="center" width="82%"}
+
+```{=html}
+<div class="chips">
+  <span class="lead">three dispatch paths:</span>
+  <i><b>direct peer</b>, at once</i>
+  <i><b>deferred peer</b>, from the queue</i>
+  <i><b>self-run</b>, no serialization</i>
+</div>
+```
+
+::: {style="font-size:0.8em;"}
+Metadata flows through the server; bulk state flows **peer to peer**.
+[Rank 0 stays near 25 MB whatever the tree.]{style="color:#B40000; display:block;"}
+:::
+
+::: {.notes}
+Move two. Once the state can be checkpointed, sibling sequences are
+independent, so the tree should be easy to run in parallel. The difficulty is
+that the work is not known in advance: a branch exists only when a simulation
+reaches a pivotal event. So the scheduler has to be dynamic.
+
+Rank zero is a server that never runs physics and only does the bookkeeping.
+When a worker branches, it keeps the restart state and tells the server two
+integers. When the server pairs that branch with a free worker, the state
+travels directly from worker to worker.
+
+So the server stays near twenty-five megabytes whatever the size of the tree.
+And if no other worker is free, the worker runs its own branch.
+:::
+
+## The parallel engine in action {#anim-parallel-engine data-section="3" background-iframe="assets/anim/parallel-engine-animation.html" background-interactive="true" visibility="uncounted" .no-band}
+
+::: {.notes}
+[Animation, about thirty-four seconds. It starts by itself and stops on its
+last picture; the slide PDF shows that picture only.]
+
+Here it is on a small tree. On the left, rank zero: a table of workers and a
+queue, and no simulation state. In the middle, six workers, each running one
+transient.
+
+A worker reaches a branch point, saves its state, reports two numbers, and
+keeps going. The server pairs the branch with a free worker, and the state
+moves from worker to worker.
+
+On the right, the same tree builds up in simulation time. At the end the
+outputs merge into one tree, identical to the serial run.
+:::
+
+## Large trees stay in memory, and a study can stop and resume {#memory-fault data-section="3"}
+
+```{=html}
+<div class="xcards">
+  <div class="xcard">
+    <div class="x-name">Compressed restart state</div>
+    <div class="x-big">about 3×</div>
+    <div class="x-cap">LZ4 on queued RELAP5 restart buffers; a run-time option</div>
+    <div class="x-note">Lower peak memory and less MPI traffic.</div>
+  </div>
+  <div class="xcard">
+    <div class="x-name">Adaptive memory limit</div>
+    <div class="x-big">RAM <span class="arr">↔</span> file</div>
+    <div class="x-cap">each restart operation is placed by the live footprint of the process</div>
+    <div class="x-note">A run degrades gracefully when a tree outgrows memory, instead of failing.</div>
+  </div>
+  <div class="xcard">
+    <div class="x-name">Whole-study checkpoint</div>
+    <div class="x-big">12 <span class="arr">→</span> 4</div>
+    <div class="x-cap">ranks, or serial to MPI: one checkpoint, fingerprinted by version and configuration</div>
+    <div class="x-note">A study resumes across execution modes and rank counts, which is what batch queues demand.</div>
+  </div>
+</div>
+```
+
+::: {style="font-size:0.78em; margin-top:0.6em;"}
+Each rank writes in a private directory; the final merge reproduces the
+exact output layout of a serial run, and
+[validation tests assert agreement between serial and MPI
+results.]{style="color:#B40000;"}
+:::
+
+::: {.notes}
+[If you are running late, skip this slide. It saves about a minute.]
+
+Two more things make large trees practical.
+
+First, memory. The queued restart data can be compressed with LZ4, about three
+to one, which cuts both peak memory and message traffic. And an adaptive limit
+moves individual restart operations between memory and files, so a run slows
+down instead of failing when a tree outgrows the memory.
+
+Second, a study can stop and resume, thanks to the same checkpoint primitive.
+The whole study can be saved and picked up again in a different mode or on a
+different number of ranks: a serial study resumes under MPI, a twelve-rank
+study on four.
+
+And the merged output of a parallel run has the same layout as a serial run,
+which the validation tests check.
+:::
